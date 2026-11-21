@@ -17,10 +17,10 @@
         rel="stylesheet">
 
     <!-- Root CSS -->
-    <link rel="stylesheet" href="/AITAMslack/assets/css/root.css">
+    <link rel="stylesheet" href="../assets/css/root.css">
 
     <!-- Admin CSS -->
-    <link rel="stylesheet" href="/AITAMslack/assets/css/admin.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
 
 <body>
@@ -176,7 +176,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Custom JavaScript -->
-    <script src="/AITAMslack/assets/js/admin.js"></script>
+    <script src="../assets/js/admin.js"></script>
 
 </body>
 </html>

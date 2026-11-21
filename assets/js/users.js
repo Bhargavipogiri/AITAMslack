@@ -3,31 +3,31 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // View user details
     const viewButtons = document.querySelectorAll(".view-btn");
+    const userModal = document.getElementById("userModal");
 
     viewButtons.forEach(function (button) {
 
         button.addEventListener("click", function () {
 
-            document.getElementById("modalName").textContent =
-                button.dataset.name || "-";
+            const fields = {
+                modalName: button.dataset.name,
+                modalEmail: button.dataset.email,
+                modalRole: button.dataset.role,
+                modalDepartment: button.dataset.department,
+                modalPhone: button.dataset.phone
+            };
 
-            document.getElementById("modalEmail").textContent =
-                button.dataset.email || "-";
+            Object.entries(fields).forEach(function ([id, value]) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value || "-";
+                }
+            });
 
-            document.getElementById("modalRole").textContent =
-                button.dataset.role || "-";
-
-            document.getElementById("modalDepartment").textContent =
-                button.dataset.department || "-";
-
-            document.getElementById("modalPhone").textContent =
-                button.dataset.phone || "-";
-
-            const modal = new bootstrap.Modal(
-                document.getElementById("userModal")
-            );
-
-            modal.show();
+            if (userModal && window.bootstrap && window.bootstrap.Modal) {
+                const modal = window.bootstrap.Modal.getOrCreateInstance(userModal);
+                modal.show();
+            }
         });
 
     });

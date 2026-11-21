@@ -929,3 +929,113 @@ body.sidebar-collapsed .main-content {
         flex-direction: column;
     }
 }
+
+/* =========================================
+   LAYOUT POLISH AND SIDEBAR TOGGLE
+========================================= */
+
+.sidebar-toggle {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.10);
+    color: var(--color-white);
+    cursor: pointer;
+    font-size: 20px;
+    transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.20);
+}
+
+.topbar-left {
+    min-width: 0;
+}
+
+.topbar-left .page-heading {
+    min-width: 0;
+}
+
+.topbar-left .page-heading h4 {
+    max-width: 620px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.table-responsive {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+}
+
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+}
+
+.dropdown-menu {
+    margin-top: 8px !important;
+}
+
+.modal-backdrop.show {
+    opacity: 0.55;
+}
+
+@media (max-width: 768px) {
+    .sidebar-toggle {
+        width: 36px;
+        height: 36px;
+        margin-right: 9px;
+    }
+
+    .sidebar {
+        top: 0;
+        bottom: 0;
+        left: 0;
+        border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+        box-shadow: var(--shadow-lg);
+    }
+
+    body.mobile-sidebar-open::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 950;
+        background: rgba(15, 40, 84, 0.42);
+        backdrop-filter: blur(2px);
+    }
+
+    body.mobile-sidebar-open .sidebar {
+        z-index: 1000;
+    }
+
+    .topbar-left .page-heading h4 {
+        max-width: 280px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .topbar-left .page-heading h4 {
+        max-width: 190px;
+        font-size: 12px;
+    }
+
+    .topbar-description {
+        max-width: 190px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}

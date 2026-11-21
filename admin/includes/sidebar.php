@@ -24,7 +24,7 @@ $accountMenu = [
     <div class="sidebar-brand">
 
         <div class="brand-icon">
-            <img src="/AITAMslack/assets/images/college-logo.jpg"
+            <img src="../assets/images/college-logo.jpg"
                 alt="AITAM College Logo">
         </div>
 

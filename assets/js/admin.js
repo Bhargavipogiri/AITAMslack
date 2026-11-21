@@ -4,6 +4,18 @@ document.addEventListener("DOMContentLoaded", function () {
     const sidebarToggle = document.getElementById("sidebarToggle");
     const sidebar = document.getElementById("sidebar");
 
+    if (!sidebarToggle || !sidebar) {
+        return;
+    }
+
+    function syncToggleState() {
+        const isOpen = window.innerWidth <= 768
+            ? document.body.classList.contains("mobile-sidebar-open")
+            : !document.body.classList.contains("sidebar-collapsed");
+
+        sidebarToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    }
+
     // Sidebar collapse and expand
     sidebarToggle.addEventListener("click", function () {
 
@@ -16,6 +28,8 @@ document.addEventListener("DOMContentLoaded", function () {
             document.body.classList.toggle("sidebar-collapsed");
 
         }
+
+        syncToggleState();
 
     });
 
@@ -33,6 +47,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         }
 
+        syncToggleState();
+
     });
 
     // Close mobile sidebar with Escape key
@@ -41,6 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (event.key === "Escape") {
 
             document.body.classList.remove("mobile-sidebar-open");
+            syncToggleState();
 
         }
 
@@ -55,6 +72,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         }
 
+        syncToggleState();
+
     });
+
+    syncToggleState();
 
 });

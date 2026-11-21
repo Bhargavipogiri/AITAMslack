@@ -23,6 +23,14 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Admin Panel';
     <!-- Page Heading -->
     
         <div class="topbar-left">
+            <button class="sidebar-toggle"
+                    id="sidebarToggle"
+                    type="button"
+                    aria-label="Toggle sidebar"
+                    aria-controls="sidebar"
+                    aria-expanded="true">
+                <i class="bi bi-list"></i>
+            </button>
             <div class="page-heading">
                 <h4>ADITYA INSTITUTE OF TECHNOLOGY AND MANAGMENT</h4>
                 <p class="topbar-description">

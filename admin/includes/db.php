@@ -18,7 +18,7 @@ try {
         PDO::ERRMODE_EXCEPTION
     );
 
-    echo "Database Connected Successfully!";
+   
 
 } catch (PDOException $e) {
 
