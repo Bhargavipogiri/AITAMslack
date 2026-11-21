@@ -1,26 +1,23 @@
 
-/* ==============================
-   COLOR VARIABLES
-============================== */
+/* =========================================
+   ADMIN PANEL - GLOBAL STYLES
+========================================= */
 
 :root {
-    --primary-color: #071B2B;
-    --secondary-color: #167D8D;
-    --light-color: #B9E4E8;
-    --background-color: #EEEEEE;
-
-    --white: #FFFFFF;
-    --text-color: #263746;
-    --muted-color: #8A9AA6;
-    --border-color: #DCE3E8;
-
     --sidebar-width: 260px;
     --topbar-height: 82px;
-}
 
-/* ==============================
-   GLOBAL STYLES
-============================== */
+    /* Compatibility variables mapped to root.css */
+    --primary-color: var(--color-navy-950);
+    --secondary-color: var(--color-blue-800);
+    --light-color: var(--color-cyan-100);
+    --background-color: var(--bg-app);
+
+    --white: var(--color-white);
+    --text-color: var(--text-primary);
+    --muted-color: var(--text-muted);
+    --border-color: var(--border-default);
+}
 
 * {
     margin: 0;
@@ -29,43 +26,42 @@
 }
 
 body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: var(--background-color);
-    color: var(--text-color);
+    font-family: var(--font-family-base);
+    background: var(--bg-app);
+    color: var(--text-primary);
+    min-height: 100vh;
 }
 
 a {
     text-decoration: none;
 }
 
-/* ==============================
+
+/* =========================================
    SIDEBAR
-============================== */
+========================================= */
 
 .sidebar {
     position: fixed;
     top: 12px;
     left: 12px;
     bottom: 12px;
-
     width: var(--sidebar-width);
 
-    background: var(--primary-color);
-    color: var(--white);
+    background: var(--bg-sidebar);
+    color: var(--text-on-brand);
 
-    border-radius: 10px 0 10px 10px;
-
+    border-radius: var(--radius-md) 0 var(--radius-md) var(--radius-md);
     padding: 20px 11px;
 
     display: flex;
     flex-direction: column;
 
     z-index: 1000;
-
     overflow-y: auto;
 
-    transition: width 0.3s ease,
-                transform 0.3s ease;
+    transition: width var(--transition-fast),
+                transform var(--transition-fast);
 }
 
 /* Branding */
@@ -74,16 +70,13 @@ a {
     display: flex;
     align-items: center;
     gap: 10px;
-
     padding: 0 10px 18px;
 }
 
 .brand-icon {
     width: 50px;
     height: 50px;
-
-    background: var(--white);
-
+    background: var(--color-white);
     border-radius: 50%;
 
     display: flex;
@@ -97,7 +90,6 @@ a {
 .brand-icon img {
     width: 100%;
     height: 100%;
-
     object-fit: contain;
     padding: 3px;
 }
@@ -106,19 +98,19 @@ a {
     font-size: 15px;
     font-weight: 600;
     margin-bottom: 2px;
-    color: var(--white);
+    color: var(--text-on-brand);
 }
 
 .brand-text span {
     font-size: 10px;
-    color: var(--light-color);
+    color: var(--color-cyan-100);
 }
 
-/* Divider */
+/* Sidebar Divider */
 
 .sidebar-divider {
     height: 1px;
-    background: rgba(185, 228, 232, 0.25);
+    background: rgba(189, 232, 245, 0.25);
     margin: 0 0 17px;
     flex-shrink: 0;
 }
@@ -132,8 +124,7 @@ a {
 .menu-heading {
     font-size: 10px;
     font-weight: 600;
-    color: var(--light-color);
-
+    color: var(--color-cyan-100);
     padding: 0 10px;
     margin-bottom: 11px;
 }
@@ -156,40 +147,38 @@ a {
     gap: 11px;
 
     min-height: 41px;
-
     padding: 10px;
 
-    border-radius: 7px;
-
-    color: var(--white);
+    border-radius: var(--radius-sm);
+    color: var(--text-on-brand);
 
     font-size: 12px;
     font-weight: 500;
 
-    transition: all 0.2s ease;
+    transition: background var(--transition-fast),
+                color var(--transition-fast);
 }
 
 .menu-link i {
     font-size: 14px;
-    color: var(--light-color);
-
+    color: var(--color-cyan-100);
     width: 13px;
     flex-shrink: 0;
 }
 
 .menu-link:hover {
-    background: rgba(22, 125, 141, 0.35);
-    color: var(--white);
+    background: rgba(73, 136, 196, 0.25);
+    color: var(--color-white);
 }
 
 .menu-link.active {
-    background: var(--secondary-color);
-    color: var(--white);
+    background: var(--color-blue-800);
+    color: var(--color-white);
     font-weight: 600;
 }
 
 .menu-link.active i {
-    color: var(--white);
+    color: var(--color-white);
 }
 
 /* Logout */
@@ -197,8 +186,7 @@ a {
 .sidebar-logout {
     margin-top: auto;
     padding-top: 17px;
-
-    border-top: 1px solid rgba(185, 228, 232, 0.25);
+    border-top: 1px solid rgba(189, 232, 245, 0.25);
 }
 
 .logout-link {
@@ -207,13 +195,13 @@ a {
     gap: 11px;
 
     padding: 10px;
+    color: var(--color-danger);
 
-    color: #FF8A8A;
     font-size: 12px;
     font-weight: 500;
 
-    border-radius: 7px;
-    transition: 0.2s ease;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
 }
 
 .logout-link i {
@@ -221,19 +209,20 @@ a {
 }
 
 .logout-link:hover {
-    background: rgba(255, 100, 100, 0.12);
-    color: #FF8A8A;
+    background: rgba(194, 65, 75, 0.15);
+    color: var(--color-danger);
 }
 
-/* ==============================
+
+/* =========================================
    TOPBAR
-============================== */
+========================================= */
 
 .topbar {
     height: var(--topbar-height);
 
-    background: var(--primary-color);
-    color: var(--white);
+    background: var(--gradient-brand);
+    color: var(--text-on-brand);
 
     display: flex;
     align-items: center;
@@ -248,9 +237,9 @@ a {
 
     z-index: 900;
 
-    border-radius: 0 10px 10px 0;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
 
-    transition: left 0.3s ease;
+    transition: left var(--transition-fast);
 }
 
 .topbar-left {
@@ -258,58 +247,17 @@ a {
     align-items: center;
 }
 
-.sidebar-toggle {
-    width: 38px;
-    height: 38px;
-
-    border: none;
-    background: var(--secondary-color);
-
-    border-radius: 7px;
-
-    color: var(--white);
-    font-size: 21px;
-
-    cursor: pointer;
-    transition: 0.2s ease;
-}
-
-.sidebar-toggle:hover {
-    background: var(--light-color);
-    color: var(--primary-color);
-}
-
-
 .page-heading h4 {
     font-size: 19px;
     font-weight: 600;
-    color: var(--white);
+    color: var(--text-on-brand);
     margin-bottom: 5px;
 }
 
 .topbar-description {
     font-size: 12px;
-    color: var(--light-color);
+    color: var(--color-cyan-100);
     margin: 0;
-}
-
-
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-
-    font-size: 11px;
-    color: var(--light-color);
-}
-
-.breadcrumb i {
-    font-size: 9px;
-    color: var(--light-color);
-}
-
-.current-page {
-    color: var(--light-color);
 }
 
 /* Topbar Right */
@@ -320,29 +268,28 @@ a {
     gap: 15px;
 }
 
-/* Icon Buttons */
+/* Notification Button */
 
 .topbar-icon {
     width: 38px;
     height: 38px;
 
     border: none;
-    border-radius: 7px;
+    border-radius: var(--radius-sm);
 
-    background: rgba(185, 228, 232, 0.12);
-    color: var(--light-color);
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--color-white);
 
     font-size: 17px;
-
     cursor: pointer;
     position: relative;
 
-    transition: 0.2s ease;
+    transition: background var(--transition-fast);
 }
 
 .topbar-icon:hover {
-    background: var(--secondary-color);
-    color: var(--white);
+    background: var(--color-blue-500);
+    color: var(--color-white);
 }
 
 /* Notification Dot */
@@ -355,7 +302,7 @@ a {
     width: 7px;
     height: 7px;
 
-    background: #FF7373;
+    background: var(--color-danger);
     border-radius: 50%;
 }
 
@@ -364,35 +311,38 @@ a {
 .notification-menu {
     width: 260px;
     padding: 0;
-    border: none;
+    border: 1px solid var(--border-default);
 
-    border-radius: 9px;
-    box-shadow: 0 5px 20px rgba(7, 27, 43, 0.12);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+
+    box-shadow: var(--shadow-md);
 }
 
 .notification-header {
     padding: 14px;
+
     display: flex;
     flex-direction: column;
     gap: 4px;
 
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-default);
 }
 
 .notification-header strong {
     font-size: 13px;
-    color: var(--primary-color);
+    color: var(--text-primary);
 }
 
 .notification-header span {
     font-size: 11px;
-    color: var(--muted-color);
+    color: var(--text-muted);
 }
 
 .notification-empty {
     padding: 25px 10px;
     text-align: center;
-    color: var(--muted-color);
+    color: var(--text-muted);
 }
 
 .notification-empty i {
@@ -422,10 +372,8 @@ a {
     height: 38px;
 
     border-radius: 50%;
-
-    background: var(--secondary-color);
-
-    color: var(--white);
+    background: var(--color-blue-500);
+    color: var(--color-white);
 
     display: flex;
     align-items: center;
@@ -442,70 +390,205 @@ a {
 
 .admin-info strong {
     font-size: 12px;
-    color: var(--white);
+    color: var(--text-on-brand);
 }
 
 .admin-info span {
     font-size: 10px;
-    color: var(--light-color);
+    color: var(--color-cyan-100);
 }
 
 .dropdown-arrow {
     font-size: 11px;
-    color: var(--light-color);
+    color: var(--color-cyan-100);
 }
 
 .profile-menu {
     min-width: 180px;
     padding: 7px;
 
-    border: none;
-    border-radius: 9px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
 
-    box-shadow: 0 5px 20px rgba(7, 27, 43, 0.12);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-md);
 }
 
 .profile-menu .dropdown-item {
     font-size: 12px;
     padding: 9px 10px;
-    border-radius: 5px;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
 }
 
 .profile-menu .dropdown-item i {
     margin-right: 8px;
-    color: var(--secondary-color);
+    color: var(--color-primary);
 }
 
 .profile-menu .dropdown-item:hover {
-    background: var(--light-color);
+    background: var(--bg-surface-muted);
 }
 
 .profile-menu .logout-dropdown,
 .profile-menu .logout-dropdown i {
-    color: #D94343;
+    color: var(--color-danger);
 }
 
-/* ==============================
+
+/* =========================================
    MAIN CONTENT
-============================== */
+========================================= */
 
 .main-content {
     margin-left: calc(var(--sidebar-width) + 24px);
-
     padding-top: calc(var(--topbar-height) + 32px);
 
     min-height: 100vh;
 
-    transition: margin-left 0.3s ease;
+    transition: margin-left var(--transition-fast);
 }
 
 .page-content {
-    padding: 20px 25px;
+    padding: 25px;
 }
 
-/* ==============================
+
+/* =========================================
+   DASHBOARD HEADER
+========================================= */
+
+.dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
+}
+
+.dashboard-header h3 {
+    color: var(--text-primary);
+    font-size: 23px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.dashboard-header p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 0;
+}
+
+
+/* =========================================
+   DASHBOARD CARDS
+========================================= */
+
+.dashboard-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    width: 100%;
+}
+
+.dashboard-card {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+
+    min-height: 125px;
+    min-width: 0;
+
+    padding: 23px 20px;
+
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+
+    text-decoration: none;
+    color: var(--text-primary);
+
+    box-shadow: var(--shadow-sm);
+
+    transition: transform var(--transition-fast),
+                box-shadow var(--transition-fast),
+                border-color var(--transition-fast);
+}
+
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-blue-500);
+    color: var(--text-primary);
+}
+
+/* Card Icons */
+
+.card-icon {
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: var(--radius-md);
+    font-size: 23px;
+}
+
+.users-icon {
+    background: #EAF2F9;
+    color: var(--color-blue-800);
+}
+
+.blocked-icon {
+    background: #FCEAEA;
+    color: var(--color-danger);
+}
+
+.questions-icon {
+    background: #E9EEFA;
+    color: #536DB5;
+}
+
+.answers-icon {
+    background: #E8F5EC;
+    color: var(--color-success);
+}
+
+.reported-icon {
+    background: #FFF3DF;
+    color: var(--color-warning);
+}
+
+.reported-answers-icon {
+    background: #F2EAF8;
+    color: #8956AD;
+}
+
+/* Card Details */
+
+.card-details {
+    min-width: 0;
+}
+
+.card-details p {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.card-details h3 {
+    color: var(--text-primary);
+    font-size: 27px;
+    font-weight: 700;
+    margin: 0;
+}
+
+
+/* =========================================
    COLLAPSED SIDEBAR
-============================== */
+========================================= */
 
 body.sidebar-collapsed .sidebar {
     width: 75px;
@@ -547,9 +630,16 @@ body.sidebar-collapsed .main-content {
     margin-left: 99px;
 }
 
-/* ==============================
+
+/* =========================================
    RESPONSIVE DESIGN
-============================== */
+========================================= */
+
+@media (max-width: 1100px) {
+    .dashboard-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
 
 @media (max-width: 768px) {
 
@@ -566,6 +656,7 @@ body.sidebar-collapsed .main-content {
         right: 12px;
         padding: 0 15px;
         height: 70px;
+        border-radius: var(--radius-md);
     }
 
     .main-content {
@@ -595,187 +686,6 @@ body.sidebar-collapsed .main-content {
     }
 }
 
-@media (max-width: 480px) {
-
-    .breadcrumb {
-        display: none;
-    }
-
-    .page-heading h4 {
-        font-size: 14px;
-    }
-
-    .topbar {
-        padding: 0 10px;
-    }
-
-    .topbar-left {
-        gap: 9px;
-    }
-
-    .topbar-right {
-        gap: 6px;
-    }
-
-    .topbar-icon,
-    .sidebar-toggle {
-        width: 34px;
-        height: 34px;
-    }
-
-}
-
-
-
-
-/* =========================================
-   DASHBOARD HEADER
-========================================= */
-
-.dashboard-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 25px;
-}
-
-.dashboard-header h3 {
-    color: var(--primary-color);
-    font-size: 23px;
-    font-weight: 600;
-    margin-bottom: 6px;
-}
-
-.dashboard-header p {
-    color: var(--muted-color);
-    font-size: 14px;
-    margin: 0;
-}
-
-
-/* =========================================
-   DASHBOARD CARDS
-========================================= */
-
-.dashboard-cards {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
-    width: 100%;
-}
-
-.dashboard-card {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-
-    min-height: 125px;
-    min-width: 0;
-
-    padding: 23px 20px;
-
-    background-color: var(--white);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-
-    text-decoration: none;
-    color: var(--text-color);
-
-    transition: all 0.3s ease;
-}
-
-.dashboard-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 6px 20px rgba(7, 27, 43, 0.08);
-    border-color: var(--secondary-color);
-    color: var(--text-color);
-}
-
-
-/* =========================================
-   CARD ICONS
-========================================= */
-
-.card-icon {
-    width: 52px;
-    height: 52px;
-    min-width: 52px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 12px;
-    font-size: 23px;
-}
-
-.users-icon {
-    background-color: #E4F3F5;
-    color: #167D8D;
-}
-
-.blocked-icon {
-    background-color: #FCEAEA;
-    color: #D9534F;
-}
-
-.questions-icon {
-    background-color: #E9EEFA;
-    color: #536DB5;
-}
-
-.answers-icon {
-    background-color: #E8F5EC;
-    color: #29965A;
-}
-
-.reported-icon {
-    background-color: #FFF3DF;
-    color: #D99225;
-}
-
-.reported-answers-icon {
-    background-color: #F2EAF8;
-    color: #8956AD;
-}
-
-
-/* =========================================
-   CARD DETAILS
-========================================= */
-
-.card-details {
-    min-width: 0;
-}
-
-.card-details p {
-    color: var(--muted-color);
-    font-size: 13px;
-    margin-bottom: 8px;
-}
-
-.card-details h3 {
-    color: var(--primary-color);
-    font-size: 27px;
-    font-weight: 700;
-    margin: 0;
-}
-
-
-/* =========================================
-   RESPONSIVE DESIGN
-========================================= */
-
-/* Tablets and medium screens */
-
-@media (max-width: 1100px) {
-    .dashboard-cards {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-/* Mobile screens */
-
 @media (max-width: 600px) {
 
     .dashboard-cards {
@@ -794,5 +704,29 @@ body.sidebar-collapsed .main-content {
 
     .dashboard-header p {
         font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .page-heading h4 {
+        font-size: 13px;
+    }
+
+    .topbar-description {
+        font-size: 10px;
+    }
+
+    .topbar {
+        padding: 0 10px;
+    }
+
+    .topbar-right {
+        gap: 6px;
+    }
+
+    .topbar-icon {
+        width: 34px;
+        height: 34px;
     }
 }
