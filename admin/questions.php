@@ -1,0 +1,353 @@
+
+<?php
+session_start();
+
+require_once 'includes/db.php';
+
+// CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function e($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+$error = "";
+
+// Update question status
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+
+    if (
+        !isset($_POST['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
+    ) {
+        die("Invalid request. Please refresh the page.");
+    }
+
+    $questionId = filter_input(INPUT_POST, 'question_id', FILTER_VALIDATE_INT);
+    $newStatus = $_POST['status'] ?? '';
+
+    $allowedStatuses = ['Pending', 'Answered', 'Closed'];
+
+    if ($questionId && in_array($newStatus, $allowedStatuses, true)) {
+        $updateSql = "UPDATE questions
+                      SET status = :status
+                      WHERE id = :id";
+
+        $updateStmt = $pdo->prepare($updateSql);
+        $updateStmt->execute([
+            ':status' => $newStatus,
+            ':id' => $questionId
+        ]);
+    }
+
+    header("Location: questions.php");
+    exit;
+}
+
+// Search and filter values
+$search = trim($_GET['search'] ?? '');
+$category = trim($_GET['category'] ?? '');
+$status = trim($_GET['status'] ?? '');
+
+$allowedStatuses = ['Pending', 'Answered', 'Closed'];
+
+// Statistics
+$totalQuestions = $pdo->query(
+    "SELECT COUNT(*) FROM questions"
+)->fetchColumn();
+
+$pendingQuestions = $pdo->query(
+    "SELECT COUNT(*) FROM questions WHERE status = 'Pending'"
+)->fetchColumn();
+
+$answeredQuestions = $pdo->query(
+    "SELECT COUNT(*) FROM questions WHERE status = 'Answered'"
+)->fetchColumn();
+
+$closedQuestions = $pdo->query(
+    "SELECT COUNT(*) FROM questions WHERE status = 'Closed'"
+)->fetchColumn();
+
+// Categories
+$categoryStmt = $pdo->query(
+    "SELECT DISTINCT category
+     FROM questions
+     WHERE category IS NOT NULL AND category != ''
+     ORDER BY category"
+);
+
+$categories = $categoryStmt->fetchAll(PDO::FETCH_COLUMN);
+
+// Fetch questions
+$sql = "SELECT
+            q.id,
+            q.user_id,
+            q.question_title,
+            q.question_description,
+            q.category,
+            q.status,
+            q.created_at
+        FROM questions q
+        WHERE 1=1";
+
+$params = [];
+
+if ($search !== '') {
+    $sql .= " AND (
+        q.question_title LIKE :search1
+        OR q.question_description LIKE :search2
+    )";
+
+    $params[':search1'] = "%$search%";
+    $params[':search2'] = "%$search%";
+}
+
+if ($category !== '') {
+    $sql .= " AND q.category = :category";
+    $params[':category'] = $category;
+}
+
+if (in_array($status, $allowedStatuses, true)) {
+    $sql .= " AND q.status = :status";
+    $params[':status'] = $status;
+}
+
+$sql .= " ORDER BY q.created_at DESC";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+
+$questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AITAM Slack | Question Management</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <link rel="stylesheet" href="../assets/css/root.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+    <link rel="stylesheet" href="../assets/css/questions.css">
+</head>
+
+<body>
+
+<?php include 'includes/sidebar.php'; ?>
+
+<div class="main-content">
+
+    <?php include 'includes/topbar.php'; ?>
+
+    <main class="page-content questions-page">
+
+        <div class="page-heading">
+            <h2>Question Management</h2>
+            <p>Manage and monitor all questions submitted by users.</p>
+        </div>
+
+        <!-- Statistics -->
+        <div class="question-stats">
+
+            <div class="question-card">
+                <i class="bi bi-question-circle"></i>
+                <p>Total Questions</p>
+                <h3><?= e($totalQuestions) ?></h3>
+            </div>
+
+            <div class="question-card">
+                <i class="bi bi-hourglass-split"></i>
+                <p>Pending Questions</p>
+                <h3><?= e($pendingQuestions) ?></h3>
+            </div>
+
+            <div class="question-card">
+                <i class="bi bi-check-circle"></i>
+                <p>Answered Questions</p>
+                <h3><?= e($answeredQuestions) ?></h3>
+            </div>
+
+            <div class="question-card">
+                <i class="bi bi-x-circle"></i>
+                <p>Closed Questions</p>
+                <h3><?= e($closedQuestions) ?></h3>
+            </div>
+
+        </div>
+
+        <!-- Questions Table -->
+        <div class="questions-panel">
+
+            <div class="panel-heading">
+                <h4>All Questions</h4>
+                <p>View, search and update submitted questions.</p>
+            </div>
+
+            <!-- Search and Filters -->
+            <form method="GET" class="question-filters">
+
+                <input
+                    type="text"
+                    name="search"
+                    placeholder="Search questions..."
+                    value="<?= e($search) ?>"
+                >
+
+                <select name="category">
+                    <option value="">All Categories</option>
+
+                    <?php foreach ($categories as $cat): ?>
+                        <option value="<?= e($cat) ?>"
+                            <?= $category === $cat ? 'selected' : '' ?>>
+                            <?= e($cat) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <select name="status">
+                    <option value="">All Statuses</option>
+
+                    <?php foreach ($allowedStatuses as $item): ?>
+                        <option value="<?= e($item) ?>"
+                            <?= $status === $item ? 'selected' : '' ?>>
+                            <?= e($item) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+                <button type="submit">
+                    <i class="bi bi-search"></i> Search
+                </button>
+
+                <a href="questions.php">Reset</a>
+
+            </form>
+
+            <!-- Table -->
+            <div class="table-responsive">
+
+                <table class="table questions-table">
+
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Question</th>
+                            <th>User ID</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                            <th>Update Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                    <?php if (!empty($questions)): ?>
+
+                        <?php foreach ($questions as $question): ?>
+
+                            <tr>
+                                <td><?= e($question['id']) ?></td>
+
+                                <td>
+                                    <strong>
+                                        <?= e($question['question_title']) ?>
+                                    </strong>
+
+                                    <div class="small text-muted">
+                                        <?= e($question['question_description'] ?? '') ?>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <?= e($question['user_id']) ?>
+                                </td>
+
+                                <td>
+                                    <?= e($question['category'] ?? 'General') ?>
+                                </td>
+
+                                <td>
+                                    <span class="question-status">
+                                        <?= e($question['status']) ?>
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <?= e($question['created_at']) ?>
+                                </td>
+
+                                <td>
+                                    <form method="POST">
+
+                                        <input type="hidden"
+                                               name="csrf_token"
+                                               value="<?= e($_SESSION['csrf_token']) ?>">
+
+                                        <input type="hidden"
+                                               name="question_id"
+                                               value="<?= e($question['id']) ?>">
+
+                                        <select name="status"
+                                                class="form-select form-select-sm mb-1">
+
+                                            <?php foreach ($allowedStatuses as $item): ?>
+                                                <option value="<?= e($item) ?>"
+                                                    <?= $question['status'] === $item ? 'selected' : '' ?>>
+                                                    <?= e($item) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+
+                                        </select>
+
+                                        <button type="submit"
+                                                name="update_status"
+                                                class="btn btn-sm btn-primary">
+                                            Update
+                                        </button>
+
+                                    </form>
+                                </td>
+
+                            </tr>
+
+                        <?php endforeach; ?>
+
+                    <?php else: ?>
+
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                No questions found.
+                            </td>
+                        </tr>
+
+                    <?php endif; ?>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../assets/js/admin.js"></script>
+
+</body>
+</html>

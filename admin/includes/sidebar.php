@@ -14,7 +14,7 @@ $mainMenu = [
 
 $accountMenu = [
     ['title' => 'Settings', 'icon' => 'bi-gear', 'link' => 'settings.php'],
-    ['title' => 'My Profile', 'icon' => 'bi-person-circle', 'link' => 'profile.php']
+    ['title' => 'My Profile', 'icon' => 'bi-person-circle', 'link' => 'my_profile.php']
 ];
 ?>
 
