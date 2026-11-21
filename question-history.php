@@ -1,4 +1,31 @@
 
+<?php
+require_once 'leader-db.php';
+
+// Fetch question history without requiring a login.
+$questions = [];
+$databaseError = '';
+
+try {
+    $sql = "SELECT id, user_id, question_title,
+                   question_description, category,
+                   status, created_at
+            FROM questions
+            ORDER BY created_at DESC";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute();
+    $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $databaseError = 'Unable to load question history. Please try again later.';
+}
+
+// Escape output safely
+function e($value) {
+    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
+}
+?>
+<?php include 'nav.php'; ?>    
 
 <!DOCTYPE html>
 <html lang="en">
@@ -114,6 +141,15 @@
             color: var(--text-secondary);
         }
 
+        .database-error {
+            margin-bottom: 18px;
+            padding: 14px 18px;
+            border: 1px solid #dc3545;
+            border-radius: 8px;
+            background: #f8d7da;
+            color: #842029;
+        }
+
         .back-link {
             display: inline-block;
             margin-top: 25px;
@@ -127,6 +163,26 @@
         .back-link:hover {
             opacity: 0.9;
         }
+
+        .question-actions {
+    margin-top: 18px;
+}
+
+.answer-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background: var(--gradient-brand);
+    color: var(--text-on-brand);
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: var(--transition-fast);
+}
+
+.answer-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+}
 
         @media (max-width: 600px) {
             .history-container {
@@ -154,6 +210,12 @@
         Total Questions: <?= count($questions) ?>
     </div>
 
+    <?php if ($databaseError !== ''): ?>
+        <div class="database-error" role="alert">
+            <?= e($databaseError) ?>
+        </div>
+    <?php endif; ?>
+
     <section class="question-list">
 
         <?php if (count($questions) > 0): ?>
@@ -161,7 +223,8 @@
             <?php foreach ($questions as $question): ?>
 
                 <?php
-                    $statusClass = strtolower($question['status']);
+                    $statusClass = strtolower((string)($question['status'] ?? ''));
+                    $createdAt = strtotime((string)($question['created_at'] ?? ''));
                 ?>
 
                 <article class="question-card">
@@ -186,7 +249,7 @@
                         </span>
 
                         <span>
-                            User ID: <?= e($question['user_id']) ?>
+                            User: <?= e($question['user_id']) ?>
                         </span>
 
                         <span>
@@ -194,12 +257,18 @@
                         </span>
 
                         <span>
-                            Date: <?= e(date(
-                                'd M Y, h:i A',
-                                strtotime($question['created_at'])
-                            )) ?>
+                            Date:
+                            <?= e($createdAt
+                                ? date('d M Y, h:i A', $createdAt)
+                                : 'Unknown') ?>
                         </span>
                     </div>
+                    <div class="question-actions">
+    <a href="answer.php?question_id=<?= e($question['id']) ?>"
+       class="answer-btn">
+        Answer
+    </a>
+</div>
 
                 </article>
 
@@ -221,6 +290,7 @@
     </a>
 
 </main>
+<?php include 'footer.php'; ?>
 
 </body>
 </html>

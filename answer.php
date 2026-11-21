@@ -1,99 +1,167 @@
 
 <?php
-session_start();
-require_once 'db.php';
-
-// Check login
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit();
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
 }
 
-$userId = $_SESSION['user_id'];
+require_once 'leader-db.php';
 
 // Escape output
 function e($value) {
-    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
 }
+
+$databaseError = '';
 
 // Submit answer
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $questionId = filter_input(INPUT_POST, 'question_id', FILTER_VALIDATE_INT);
+    $questionId = filter_var(
+        $_POST['question_id'] ?? '',
+        FILTER_VALIDATE_INT
+    );
+
     $answerText = trim($_POST['answer_text'] ?? '');
 
     if (!$questionId || $answerText === '') {
-        header("Location: answer.php?error=invalid");
+        $redirectId = $questionId ? $questionId : '';
+        header("Location: answer.php"
+            . ($redirectId ? "?question_id=" . $redirectId . "&error=invalid" : "?error=invalid"));
         exit();
     }
 
-    // Check whether the question exists
-    $check = $pdo->prepare(
-        "SELECT id FROM questions WHERE id = :id"
-    );
-    $check->execute(['id' => $questionId]);
+    try {
 
-    if (!$check->fetch()) {
-        header("Location: answer.php?error=notfound");
+        // Check whether the question exists
+        $check = $conn->prepare(
+            "SELECT id FROM questions WHERE id = :id"
+        );
+
+        $check->execute(['id' => $questionId]);
+
+        if (!$check->fetch(PDO::FETCH_ASSOC)) {
+            header("Location: answer.php?question_id=" . $questionId . "&error=notfound");
+            exit();
+        }
+
+        $userId = 0;
+        if (!empty($_SESSION['user_id']) && filter_var($_SESSION['user_id'], FILTER_VALIDATE_INT)) {
+            $userId = (int)$_SESSION['user_id'];
+        }
+
+        $sql = "INSERT INTO answers
+                (question_id, user_id, answer_text)
+                VALUES (:question_id, :user_id, :answer_text)";
+
+        $stmt = $conn->prepare($sql);
+
+        $stmt->execute([
+            'question_id' => $questionId,
+            'user_id' => $userId,
+            'answer_text' => $answerText
+        ]);
+
+        // Update question status
+        $update = $conn->prepare(
+            "UPDATE questions
+             SET status = 'Answered'
+             WHERE id = :id"
+        );
+
+        $update->execute(['id' => $questionId]);
+
+        // Redirect to the same question after submission
+        header("Location: answer.php?question_id=" . $questionId . "&success=1");
+        exit();
+
+    } catch (PDOException $ex) {
+
+        header("Location: answer.php?question_id=" . $questionId . "&error=database");
         exit();
     }
-
-    // Save answer
-    $sql = "INSERT INTO answers
-            (question_id, user_id, answer_text)
-            VALUES (:question_id, :user_id, :answer_text)";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        'question_id' => $questionId,
-        'user_id' => $userId,
-        'answer_text' => $answerText
-    ]);
-
-    // Update question status
-    $update = $pdo->prepare(
-        "UPDATE questions SET status = 'Answered' WHERE id = :id"
-    );
-    $update->execute(['id' => $questionId]);
-
-    header("Location: answer.php?success=1");
-    exit();
 }
 
 // Fetch questions
-$sql = "SELECT
-            q.id,
-            q.question_title,
-            q.question_description,
-            q.category,
-            q.created_at
-        FROM questions q
-        ORDER BY q.created_at DESC";
+$questions = [];
+$answerQuery = null;
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute();
-$questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+try {
 
-// Fetch answers for each question
-$answerQuery = $pdo->prepare(
-    "SELECT id, user_id, answer_text, created_at
-     FROM answers
-     WHERE question_id = :question_id
-     ORDER BY created_at ASC"
-);
+    // Display selected question if question_id is provided
+    $selectedQuestionId = filter_input(
+        INPUT_GET,
+        'question_id',
+        FILTER_VALIDATE_INT
+    );
+
+    if ($selectedQuestionId) {
+
+        $sql = "SELECT
+                    id,
+                    question_title,
+                    question_description,
+                    category,
+                    created_at
+                FROM questions
+                WHERE id = :id
+                ORDER BY created_at DESC";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->execute(['id' => $selectedQuestionId]);
+
+    } else {
+
+        // Otherwise display all questions
+        $sql = "SELECT
+                    id,
+                    question_title,
+                    question_description,
+                    category,
+                    created_at
+                FROM questions
+                ORDER BY created_at DESC";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+    }
+
+    $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fetch answers belonging to each question
+    $answerQuery = $conn->prepare(
+        "SELECT
+            id,
+            user_id,
+            answer_text,
+            created_at
+         FROM answers
+         WHERE question_id = :question_id
+         ORDER BY created_at ASC"
+    );
+
+} catch (PDOException $ex) {
+
+    $databaseError = 'Unable to load questions and answers.';
+    $answerQuery = null;
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
     <title>Answers | AITAM Slack</title>
 
     <link rel="stylesheet" href="root.css">
 
     <style>
+
         * {
             box-sizing: border-box;
         }
@@ -170,6 +238,7 @@ $answerQuery = $pdo->prepare(
         .answer-item p {
             line-height: 1.6;
             margin: 0 0 8px;
+            overflow-wrap: anywhere;
         }
 
         .answer-meta {
@@ -202,14 +271,20 @@ $answerQuery = $pdo->prepare(
             padding: 11px 22px;
             border: none;
             border-radius: 8px;
-            background: var(--color-blue-600);
+            background: var(--gradient-brand);
             color: var(--text-on-brand);
             font: inherit;
+            font-weight: 700;
             cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition-fast);
         }
 
         .answer-form button:hover {
-            opacity: 0.9;
+            background: var(--gradient-accent);
+            color: var(--color-navy-950);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
 
         .empty-state {
@@ -231,7 +306,8 @@ $answerQuery = $pdo->prepare(
             color: #155724;
         }
 
-        .error {
+        .error,
+        .database-error {
             background: #f8d7da;
             color: #721c24;
         }
@@ -247,35 +323,73 @@ $answerQuery = $pdo->prepare(
         }
 
         @media (max-width: 600px) {
+
             .answer-container {
                 margin: 20px auto;
                 padding: 15px;
             }
+
         }
+
     </style>
+
 </head>
 
 <body>
 
+<?php include 'nav.php'; ?>
+
 <main class="answer-container">
 
     <header class="page-header">
+
         <h1>Questions & Answers</h1>
-        <p>View questions and share your knowledge with others.</p>
+
+        <p>
+            View questions and share your knowledge with others.
+        </p>
+
     </header>
 
+    <!-- Success message -->
     <?php if (isset($_GET['success'])): ?>
+
         <div class="message success">
             Your answer was submitted successfully!
         </div>
+
     <?php endif; ?>
 
+    <!-- Error message -->
     <?php if (isset($_GET['error'])): ?>
+
         <div class="message error">
-            Unable to submit your answer. Please check your input.
+
+            <?php
+            if ($_GET['error'] === 'database') {
+                echo 'Unable to save your answer. Please try again.';
+            } elseif ($_GET['error'] === 'notfound') {
+                echo 'The selected question was not found.';
+            } else {
+                echo 'Unable to submit your answer. Please check your input.';
+            }
+            ?>
+
         </div>
+
     <?php endif; ?>
 
+    <!-- Database error -->
+    <?php if ($databaseError !== ''): ?>
+
+        <div class="message database-error" role="alert">
+            <?= e($databaseError) ?>
+        </div>
+
+    <?php endif; ?>
+
+
+    <!-- Display questions -->
     <?php if (count($questions) > 0): ?>
 
         <?php foreach ($questions as $question): ?>
@@ -294,16 +408,27 @@ $answerQuery = $pdo->prepare(
                     <?= e($question['category']) ?>
                 </span>
 
+
+                <!-- Display answers -->
                 <div class="answers-section">
 
                     <h4>Answers</h4>
 
                     <?php
-                    $answerQuery->execute([
-                        'question_id' => $question['id']
-                    ]);
 
-                    $answers = $answerQuery->fetchAll(PDO::FETCH_ASSOC);
+                    $answers = [];
+
+                    if ($answerQuery !== null) {
+
+                        $answerQuery->execute([
+                            'question_id' => $question['id']
+                        ]);
+
+                        $answers = $answerQuery->fetchAll(
+                            PDO::FETCH_ASSOC
+                        );
+                    }
+
                     ?>
 
                     <?php if (count($answers) > 0): ?>
@@ -311,18 +436,32 @@ $answerQuery = $pdo->prepare(
                         <?php foreach ($answers as $answer): ?>
 
                             <div class="answer-item">
+
                                 <p>
                                     <?= nl2br(e($answer['answer_text'])) ?>
                                 </p>
 
                                 <div class="answer-meta">
-                                    Answered by User #<?= e($answer['user_id']) ?>
+
+                                    <?= ((int)$answer['user_id'] === 0)
+                                        ? 'Answered publicly'
+                                        : 'Answered by User #' . e($answer['user_id']) ?>
+
+                                    <?php
+                                    $answerDate = strtotime(
+                                        (string)($answer['created_at'] ?? '')
+                                    );
+                                    ?>
+
                                     |
-                                    <?= e(date(
-                                        'd M Y, h:i A',
-                                        strtotime($answer['created_at'])
-                                    )) ?>
+                                    <?= e(
+                                        $answerDate
+                                            ? date('d M Y, h:i A', $answerDate)
+                                            : 'Unknown'
+                                    ) ?>
+
                                 </div>
+
                             </div>
 
                         <?php endforeach; ?>
@@ -337,7 +476,11 @@ $answerQuery = $pdo->prepare(
 
                 </div>
 
-                <form method="POST" action="answer.php" class="answer-form">
+
+                <!-- Answer submission form -->
+                <form method="POST"
+                      action="answer.php"
+                      class="answer-form">
 
                     <input
                         type="hidden"
@@ -369,17 +512,25 @@ $answerQuery = $pdo->prepare(
     <?php else: ?>
 
         <div class="empty-state">
+
             <h3>No Questions Available</h3>
-            <p>There are no questions to answer right now.</p>
+
+            <p>
+                There are no questions to answer right now.
+            </p>
+
         </div>
 
     <?php endif; ?>
 
-    <a href="dashboard.php" class="back-link">
-        Back to Dashboard
+
+    <a href="question-history.php" class="back-link">
+        View Questions
     </a>
 
 </main>
+
+<?php include 'footer.php'; ?>
 
 </body>
 </html>
