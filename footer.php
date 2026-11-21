@@ -15,7 +15,7 @@
             <div class="footer-brand">
 
                 <img
-                    src="/aitam-slack/AITAMslack/assets/images/Aitamlogo.png"
+                    src="./assets/images/Aitamlogo.png"
                     alt="AITAM College Logo"
                     class="footer-logo"
                 >
@@ -44,7 +44,7 @@
         </div>
 
         <!-- Divider -->
-        <div class="footer-divider"></div>
+        
 
         <!-- Bottom Footer Section -->
         <div class="footer-bottom">

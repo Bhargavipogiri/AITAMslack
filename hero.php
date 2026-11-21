@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AITAM Slack | College Community</title>
-
+<?php include 'nav.php';?>
 <style>
 /* ==============================
    AITAM SLACK - DESIGN TOKENS
@@ -2077,6 +2077,7 @@ document.getElementById("currentYear").textContent =
   new Date().getFullYear();
 
 </script>
+<?php include 'footer.php'; ?>
 
 </body>
 </html>
