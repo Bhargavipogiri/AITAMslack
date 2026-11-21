@@ -108,6 +108,67 @@
 
             </div>
 
+
+<!-- Announcements Section -->
+<section class="dashboard-announcements">
+
+    <div class="announcements-header">
+        <div>
+            <h4>Recent Announcements</h4>
+            <p>Latest updates and announcements from the college.</p>
+        </div>
+
+        <a href="announcements.php" class="view-all-btn">
+            View All
+            <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+
+    <div class="announcements-list">
+
+        <!-- Announcement 1 -->
+        <div class="announcement-item">
+
+            <div class="announcement-icon">
+                <i class="bi bi-megaphone-fill"></i>
+            </div>
+
+            <div class="announcement-details">
+                <h5>Welcome to College Connect</h5>
+                <p>
+                    Stay updated with the latest college news,
+                    events and important announcements.
+                </p>
+
+                <div class="announcement-meta">
+                    <span>
+                        <i class="bi bi-calendar3"></i>
+                        21 November 2026
+                    </span>
+
+                    <span class="announcement-status published">
+                        Published
+                    </span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Empty state example: remove this when announcements are available -->
+        <!--
+        <div class="announcement-empty">
+            <i class="bi bi-megaphone"></i>
+            <h5>No Announcements Yet</h5>
+            <p>New college announcements will appear here.</p>
+        </div>
+        -->
+
+    </div>
+
+</section>
+
+
+
         </main>
     </div>
 
