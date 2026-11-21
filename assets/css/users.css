@@ -1,0 +1,168 @@
+
+.users-page {
+    padding: 25px;
+    background-color: var(--background-color);
+}
+
+.page-heading {
+    margin-bottom: 25px;
+}
+
+.page-heading h2 {
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.page-heading p {
+    color: #777;
+}
+
+.user-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+}
+
+.stat-card i {
+    font-size: 28px;
+    color: var(--secondary-color);
+    background: var(--light-color);
+    padding: 12px;
+    border-radius: 10px;
+}
+
+.stat-card p {
+    margin: 0;
+    color: #777;
+}
+
+.stat-card h3 {
+    margin: 5px 0 0;
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.users-panel {
+    background: white;
+    padding: 22px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+}
+
+.users-panel h4 {
+    color: var(--primary-color);
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.filter-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.filter-bar input,
+.filter-bar select {
+    padding: 9px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.filter-bar input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-bar button {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 6px;
+}
+
+.filter-bar a {
+    text-decoration: none;
+    color: var(--secondary-color);
+    padding: 9px;
+}
+
+.users-table th {
+    background: var(--primary-color);
+    color: white;
+    white-space: nowrap;
+}
+
+.users-table td {
+    vertical-align: middle;
+}
+
+.status {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.status.active {
+    background: #e1f5e8;
+    color: #23804b;
+}
+
+.status.blocked {
+    background: #ffe5e2;
+    color: #bd4035;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.action-buttons form {
+    margin: 0;
+}
+
+.action-buttons button {
+    border: 1px solid #ddd;
+    background: white;
+    padding: 6px 9px;
+    border-radius: 5px;
+    color: var(--secondary-color);
+}
+
+.action-buttons .block-btn {
+    color: #c0392b;
+}
+
+.action-buttons button:hover {
+    background: var(--light-color);
+}
+
+@media (max-width: 900px) {
+    .user-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 550px) {
+    .user-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .users-page {
+        padding: 12px;
+    }
+}
