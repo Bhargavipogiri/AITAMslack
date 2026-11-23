@@ -1,6 +1,6 @@
 
 <?php
-require_once 'leader-db.php';
+require_once 'lesder-db.php';
 
 // Fetch question history without requiring a login.
 $questions = [];

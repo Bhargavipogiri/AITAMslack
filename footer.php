@@ -32,7 +32,7 @@
                 <!-- Navigation Links -->
                 <nav class="footer-links">
 
-                    <a href="dashboard.php">Home</a>
+                    <a href="index.php">Home</a>
                     <a href="question-history.php">Questions</a>
                     <a href="college-updates.php">College updates</a>
                     <a href="topics.php">Topics</a>

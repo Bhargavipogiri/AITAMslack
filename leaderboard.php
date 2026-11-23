@@ -1,6 +1,6 @@
 
 <?php
-require_once 'leader-db.php';
+require_once 'lesder-db.php';
 
 // Fetch students based on total points
 $sql = "SELECT id, name, department, year,
