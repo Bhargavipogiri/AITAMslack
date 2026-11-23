@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
+<?php include 'nav.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -427,6 +427,6 @@ body {
     </div>
 
 </main>
-
+<?php include 'footer.php'; ?>
 </body>
 </html>

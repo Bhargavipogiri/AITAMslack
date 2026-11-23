@@ -17,6 +17,7 @@ $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $topThree = array_slice($students, 0, 3);
 
 ?>
+<?php include 'nav.php'; ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -445,6 +446,7 @@ $topThree = array_slice($students, 0, 3);
     </section>
 
 </main>
+<?php include 'footer.php'; ?>
 
 </body>
 </html>
