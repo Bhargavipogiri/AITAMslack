@@ -9,10 +9,10 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
 
         <!-- LOGO -->
         <a href="index.php" class="cc-brand">
-            <div class="cc-logo"><img src="https://www.facultyplus.com/wp-content/uploads/2024/04/AITAM.png" alt="College Connect Logo" width="44" height="44"></div>
+            <div class="cc-logo"><img src="assets/images/logo.png" alt="AITAM College Logo" width="44" height="44"></div>
 
             <div class="cc-brand-text">
-                <h2>College Connect</h2>
+                <h2>AITAM SLACK</h2>
                 <span>AITAM COMMUNITY</span>
             </div>
         </a>
@@ -26,7 +26,7 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
             <a href="leaderboard.php" class="cc-nav-link<?= $currentPage === 'leaderboard.php' ? ' active' : '' ?>"<?= $currentPage === 'leaderboard.php' ? ' aria-current="page"' : '' ?>>Leaderboard</a>
             <a href="report.php" class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"<?= $currentPage === 'report.php' ? ' aria-current="page"' : '' ?>>Report</a>
             <a href="index.php#events" class="cc-nav-link">Events</a>
-            <a href="index.php#channels" class="cc-nav-link">About</a>
+            <a href="about.php" class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"<?= $currentPage === 'about.php' ? ' aria-current="page"' : '' ?>>About</a>
 
             <!-- MOBILE ACTIONS -->
             <div class="cc-mobile-actions">
@@ -74,6 +74,17 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
     background: var(--bg-header);
     border-bottom: 1px solid var(--border-default);
     box-shadow: var(--shadow-sm);
+    box-sizing: border-box;
+    font-family: var(--font-family-base, Arial, sans-serif);
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.cc-navbar *,
+.cc-navbar *::before,
+.cc-navbar *::after {
+    box-sizing: border-box;
+    font-family: inherit;
 }
 
 .cc-nav-container {
@@ -96,15 +107,25 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
 }
 
 .cc-logo {
-    width: 44px;
-    height: 44px;
+    width: 56px;
+    height: 56px;
+    flex: 0 0 56px;
     display: grid;
     place-items: center;
-    border-radius: 13px;
-    background: var(--gradient-brand);
-    color: white;
-    font-size: 25px;
-    font-weight: 800;
+    box-sizing: border-box;
+    padding: 5px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 50%;
+    background: var(--color-white);
+}
+
+.cc-logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
 }
 
 .cc-brand-text h2 {
@@ -112,6 +133,9 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
     color: var(--text-primary);
     font-size: 18px;
     font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: normal;
+    text-transform: none;
 }
 
 .cc-brand-text span {
@@ -119,6 +143,8 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
     font-size: 9px;
     font-weight: 800;
     letter-spacing: 1.5px;
+    line-height: 1.2;
+    text-transform: none;
 }
 
 /* MENU */
@@ -130,11 +156,19 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
 
 .cc-nav-link {
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
     padding: 11px 12px;
     color: var(--text-secondary);
     text-decoration: none;
     font-size: 13px;
     font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
 }
@@ -175,10 +209,15 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
 
 .cc-login,
 .cc-register {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 10px 17px;
     border-radius: var(--radius-md);
     font-size: 13px;
     font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
     text-decoration: none;
     transition: all var(--transition-fast);
 }

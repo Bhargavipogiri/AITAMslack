@@ -11,6 +11,11 @@
                      alt="AITAM College Logo"
                      class="footer-logo">
             </div>
+                    <img
+                        src="assets/images/logo.png"
+                        alt="AITAM College Logo"
+                        class="footer-logo" style="width: 58px; height: 58px; object-fit: contain; border-radius: 50%;">
+                
 
             <div class="footer-brand-text">
                 <h2>AITAM <span>SLACK</span></h2>
