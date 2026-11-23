@@ -1,5 +1,7 @@
 
 <?php
+
+require_once __DIR__ . '/platform-settings.php';
 $currentPage = basename($_SERVER['PHP_SELF']);
 
 $mainMenu = [
@@ -24,13 +26,20 @@ $accountMenu = [
     <div class="sidebar-brand">
 
         <div class="brand-icon">
-            <img src="../assets/images/college-logo.jpg"
+
+            <img src="https://adityatekkali.edu.in/ahlaad2k26/aitamsinglelogo.png"
                 alt="AITAM College Logo">
+
         </div>
 
         <div class="brand-text">
-            <h5>AITAM-SLACK</h5>
+
+            <h5>
+                <?= htmlspecialchars($platformSettings['platform_name'], ENT_QUOTES, 'UTF-8') ?>
+            </h5>
+
             <span>Administration Panel</span>
+
         </div>
 
     </div>

@@ -1,5 +1,8 @@
 <?php
-$currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php');
+require_once __DIR__ . '/admin/includes/platform-settings.php';
+$currentPage = basename(
+    parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php'
+);
 ?>
 <!-- College Connect Navbar -->
 
@@ -9,12 +12,26 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
 
         <!-- LOGO -->
         <a href="index.php" class="cc-brand">
-            <div class="cc-logo"><img src="assets/images/logo.png" alt="AITAM College Logo" width="44" height="44"></div>
+
+            <div class="cc-logo">
+                <img src="https://adityatekkali.edu.in/ahlaad2k26/aitamsinglelogo.png"
+                    alt="AITAM College Logo"
+                    width="44"
+                    height="44">
+            </div>
 
             <div class="cc-brand-text">
-                <h2>AITAM SLACK</h2>
-                <span>AITAM COMMUNITY</span>
+
+                <h2>
+                    <?= htmlspecialchars($platformSettings['platform_name'], ENT_QUOTES, 'UTF-8') ?>
+                </h2>
+
+                <span>
+                    <?= htmlspecialchars($platformSettings['platform_description'], ENT_QUOTES, 'UTF-8') ?>
+                </span>
+
             </div>
+
         </a>
 
         <!-- DESKTOP MENU -->

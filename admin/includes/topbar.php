@@ -10,40 +10,46 @@ $pageTitles = [
     'reported-answers.php' => 'Reported Answers',
     'announcements.php' => 'Announcements Management',
     'settings.php' => 'Settings',
-    'profile.php' => 'My Profile'
+    'my_profile.php' => 'My Profile'
 ];
 
 $currentPage = basename($_SERVER['PHP_SELF']);
 $pageTitle = $pageTitles[$currentPage] ?? 'Admin Panel';
 
+$adminName = $_SESSION['admin_name'] ?? 'Administrator';
+$adminImage = $_SESSION['admin_profile_image'] ?? '';
+
 ?>
 
 <header class="topbar">
 
-    <!-- Page Heading -->
-    
-        <div class="topbar-left">
-            <button class="sidebar-toggle"
-                    id="sidebarToggle"
-                    type="button"
-                    aria-label="Toggle sidebar"
-                    aria-controls="sidebar"
-                    aria-expanded="true">
-                <i class="bi bi-list"></i>
-            </button>
-            <div class="page-heading">
-                <h4>ADITYA INSTITUTE OF TECHNOLOGY AND MANAGMENT</h4>
-                <p class="topbar-description">
-                    Connecting the College Community...
-                </p>
-            </div>
+    <div class="topbar-left">
+
+        <button class="sidebar-toggle"
+                id="sidebarToggle"
+                type="button"
+                aria-label="Toggle sidebar"
+                aria-controls="sidebar"
+                aria-expanded="true">
+
+            <i class="bi bi-list"></i>
+
+        </button>
+
+        <div class="page-heading">
+
+            <h4>ADITYA INSTITUTE OF TECHNOLOGY AND MANAGMENT</h4>
+
+            <p class="topbar-description">
+                Connecting the College Community...
+            </p>
+
         </div>
 
+    </div>
 
-    <!-- Admin Profile -->
     <div class="topbar-right">
 
-        <!-- Notifications -->
         <div class="dropdown">
 
             <button class="topbar-icon notification-btn"
@@ -73,7 +79,6 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Admin Panel';
 
         </div>
 
-        <!-- Admin Profile -->
         <div class="dropdown">
 
             <button class="admin-profile-btn"
@@ -82,12 +87,30 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Admin Panel';
                     aria-expanded="false">
 
                 <div class="admin-avatar">
-                    <i class="bi bi-person"></i>
+
+                    <?php if (!empty($adminImage)): ?>
+
+                        <img
+                            src="<?= htmlspecialchars($adminImage, ENT_QUOTES, 'UTF-8') ?>"
+                            alt="Admin Profile"
+                        >
+
+                    <?php else: ?>
+
+                        <i class="bi bi-person"></i>
+
+                    <?php endif; ?>
+
                 </div>
 
                 <div class="admin-info">
-                    <strong><?= htmlspecialchars($_SESSION['admin_name'] ?? 'Administrator', ENT_QUOTES, 'UTF-8') ?></strong>
+
+                    <strong>
+                        <?= htmlspecialchars($adminName, ENT_QUOTES, 'UTF-8') ?>
+                    </strong>
+
                     <span>Administrator</span>
+
                 </div>
 
                 <i class="bi bi-chevron-down dropdown-arrow"></i>
