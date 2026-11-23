@@ -107,7 +107,7 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
                         <span class="nav-chevron" aria-hidden="true">⌄</span>
                     </button>
                     <div class="nav-profile-menu" role="menu">
-                        <a class="nav-dropdown-item" role="menuitem" href="userprofile.php">My Profile</a>
+                        <a class="nav-dropdown-item" role="menuitem" href="profile.php">My Profile</a>
                         <a class="nav-dropdown-item" role="menuitem" href="questions-history.php">Questions History</a>
                         <?php if (($_SESSION['role'] ?? null) === 'admin'): ?>
                             <a class="nav-dropdown-item" role="menuitem" href="admin.php">Admin Panel</a>
