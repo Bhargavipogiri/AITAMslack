@@ -7,15 +7,10 @@
         <div class="footer-brand">
 
             <div class="footer-logo-box">
-                <img src="./assets/images/Aitamlogo.png"
+                <img src="./assets/images/logo.png"
                      alt="AITAM College Logo"
                      class="footer-logo">
             </div>
-                    <img
-                        src="assets/images/logo.png"
-                        alt="AITAM College Logo"
-                        class="footer-logo" style="width: 58px; height: 58px; object-fit: contain; border-radius: 50%;">
-                
 
             <div class="footer-brand-text">
                 <h2>AITAM <span>SLACK</span></h2>
@@ -34,6 +29,7 @@
 
             <div class="footer-links-columns">
 
+                <!-- First Four Links -->
                 <div class="footer-links-column">
                     <a href="index.php">Home</a>
                     <a href="question-history.php">Questions</a>
@@ -41,6 +37,7 @@
                     <a href="answer.php">Answers</a>
                 </div>
 
+                <!-- Remaining Three Links -->
                 <div class="footer-links-column">
                     <a href="leaderboard.php">Leaderboard</a>
                     <a href="report.php">Report</a>
@@ -114,8 +111,7 @@
     width: 100%;
     background: var(--gradient-brand);
     color: var(--text-on-brand);
-    padding: 35px 5% 20px;
-    margin-top: 30px;
+    padding: 30px 4% 18px;
     font-family: var(--font-family-base);
     box-sizing: border-box;
 }
@@ -123,60 +119,45 @@
 /* Main Container */
 .footer-container {
     max-width: 1300px;
-    margin: 0 auto;
+    margin: auto;
 
     display: grid;
-    grid-template-columns: 1.2fr 1.15fr 1fr 1.25fr;
+    grid-template-columns: 1.25fr 1fr 1fr 1.15fr;
 
-    column-gap: 35px;
-    row-gap: 25px;
+    column-gap: 40px;
     align-items: start;
-    padding-bottom: 25px;
+    padding-bottom: 22px;
 }
 
 /* Brand Section */
 .footer-brand {
     display: flex;
-    align-items: center;
-    gap: 14px;
+    align-items: flex-start;
+    gap: 12px;
 }
 
-/* Logo Container */
 .footer-logo-box {
-    width: 68px;
-    height: 68px;
-    min-width: 68px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
     background: var(--bg-surface);
     border-radius: 50%;
-    padding: 6px;
+    padding: 5px;
     box-sizing: border-box;
-    overflow: hidden;
 }
 
-/* Logo Image */
 .footer-logo {
-    display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
-    object-position: center;
     border-radius: 50%;
-}
-
-/* Brand Text */
-.footer-brand-text {
-    min-width: 0;
 }
 
 .footer-brand-text h2 {
     color: var(--text-on-brand);
-    font-size: 23px;
-    margin: 0 0 8px;
+    font-size: 21px;
+    margin: 0 0 7px;
     font-weight: 800;
-    line-height: 1.2;
 }
 
 .footer-brand-text h2 span {
@@ -185,7 +166,7 @@
 
 .footer-brand-text p {
     color: var(--text-on-brand);
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.6;
     margin: 5px 0;
 }
@@ -202,63 +183,67 @@
 .footer-about h3,
 .footer-contact h3 {
     color: var(--color-accent);
-    font-size: 19px;
-    margin: 0 0 17px;
+    font-size: 17px;
+    margin: 0 0 14px;
     font-weight: 700;
 }
 
-/* Quick Links */
+/* Quick Links Main */
 .footer-links {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding-left: 10px;
+    padding-left: 36px;
 }
 
 /* Quick Links Two Columns */
 .footer-links-columns {
     display: grid;
     grid-template-columns: max-content max-content;
-    column-gap: 28px;
+    column-gap: 24px;
     align-items: start;
 }
 
 .footer-links-column {
     display: flex;
     flex-direction: column;
-    gap: 9px;
+    gap: 7px;
 }
 
-/* Quick Links Text */
 .footer-links a {
     display: block;
-    width: fit-content;
+    width: max-content;
     max-width: 100%;
     color: var(--text-on-brand);
     text-decoration: none;
-    font-size: 15px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 4px 8px;
+    margin: 0 -8px;
+    border-radius: var(--radius-sm);
     transition: var(--transition-fast);
 }
 
-/* Simple Hover Like Contact Us */
 .footer-links a:hover {
-    color: var(--color-accent);
-    text-decoration: none;
+    color: var(--color-navy-950);
+    background: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
 }
 
-/* Keyboard Focus */
 .footer-links a:focus-visible {
-    color: var(--color-accent);
+    color: var(--color-navy-950);
+    background: var(--color-accent);
     outline: 2px solid var(--text-on-brand);
-    outline-offset: 3px;
+    outline-offset: 2px;
 }
 
 /* About Section */
 .footer-about p {
     color: var(--text-on-brand);
-    font-size: 15px;
-    line-height: 1.8;
+    font-size: 13px;
+    line-height: 1.7;
     margin: 0;
 }
 
@@ -266,24 +251,22 @@
 .footer-contact p {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     color: var(--text-on-brand);
-    font-size: 15px;
-    line-height: 1.7;
-    margin: 0 0 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0 0 12px;
     overflow-wrap: anywhere;
 }
 
 .contact-label {
     color: var(--color-accent);
-    font-weight: 700;
-    font-size: 15px;
+    font-weight: 600;
 }
 
 .footer-contact a {
     color: var(--text-on-brand);
     text-decoration: none;
-    font-size: 15px;
     transition: var(--transition-fast);
 }
 
@@ -294,7 +277,7 @@
 /* Divider */
 .footer-divider {
     max-width: 1300px;
-    margin: 0 auto 18px;
+    margin: 0 auto 16px;
     height: 1px;
     background: var(--border-strong);
 }
@@ -306,13 +289,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 15px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
 .footer-bottom p {
     color: var(--color-accent);
-    font-size: 13px;
+    font-size: 12px;
     margin: 5px 0;
 }
 
@@ -324,9 +307,8 @@
 @media (max-width: 1050px) {
 
     .footer-container {
-        grid-template-columns: 1fr 1fr;
-        column-gap: 35px;
-        row-gap: 30px;
+        grid-template-columns: 1fr 1.3fr;
+        gap: 28px;
     }
 
     .footer-links {
@@ -344,25 +326,15 @@
 
     .footer-container {
         grid-template-columns: 1fr;
-        gap: 25px;
+        gap: 24px;
     }
 
     .footer-brand {
-        align-items: center;
-    }
-
-    .footer-logo-box {
-        width: 60px;
-        height: 60px;
-        min-width: 60px;
-    }
-
-    .footer-brand-text h2 {
-        font-size: 21px;
+        justify-content: flex-start;
     }
 
     .footer-links-columns {
-        column-gap: 30px;
+        column-gap: 25px;
     }
 
     .footer-bottom {
@@ -378,21 +350,11 @@
 @media (max-width: 380px) {
 
     .footer-links-columns {
-        column-gap: 18px;
+        column-gap: 15px;
     }
 
     .footer-links a {
-        font-size: 14px;
-    }
-
-    .footer-brand {
-        gap: 10px;
-    }
-
-    .footer-logo-box {
-        width: 54px;
-        height: 54px;
-        min-width: 54px;
+        font-size: 12px;
     }
 
 }

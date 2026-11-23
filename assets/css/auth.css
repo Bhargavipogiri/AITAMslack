@@ -11,7 +11,7 @@
 
 /* ---------- Full-Bleed Campus Hero Section ---------- */
 .hero-auth-section {
-  min-height: calc(100vh - 140px);
+  min-height: calc(100vh - 80px);
   position: relative;
   display: flex;
   align-items: center;
