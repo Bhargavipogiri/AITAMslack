@@ -9,7 +9,7 @@
                 <div class="footer-brand" style="display: flex; align-items: center; gap: 12px;border-radius: 50%; padding: 8px; background: var(--color-navy-950);">
 
                     <img
-                        src="./assets/images/Aitamlogo.png"
+                        src="assets/images/logo.png"
                         alt="AITAM College Logo"
                         class="footer-logo" style="width: 58px; height: 58px; object-fit: contain; border-radius: 50%;">
                 

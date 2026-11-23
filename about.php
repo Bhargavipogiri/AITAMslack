@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
+<?php include 'nav.php'; ?>
 
 <main class="about-page">
 
@@ -330,6 +331,8 @@
     </section>
 
 </main>
+
+<?php include 'footer.php'; ?>
 
 <script>
     lucide.createIcons();
