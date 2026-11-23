@@ -1,8 +1,29 @@
 <?php
+<<<<<<< HEAD
 require_once __DIR__ . '/admin/includes/platform-settings.php';
 $currentPage = basename(
     parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php'
 );
+=======
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    session_start();
+}
+
+$is_logged_in = isset($_SESSION['user_id']);
+$currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php');
+$profileName = trim((string)($_SESSION['full_name'] ?? 'User'));
+$profileRole = (string)($_SESSION['role'] ?? '');
+if (strcasecmp(trim($profileRole), 'faculty') === 0) {
+    $profileName = trim(preg_replace('/^Sri\s+/iu', '', $profileName) ?? $profileName);
+}
+$profileImage = $_SESSION['profile_image'] ?? '';
+$profileImagePath = is_string($profileImage) ? trim($profileImage) : '';
+$profileFilePath = $profileImagePath !== ''
+    ? ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $profileImagePath), DIRECTORY_SEPARATOR)
+    : '';
+$hasProfileImage = $profileFilePath !== '' && is_file(__DIR__ . DIRECTORY_SEPARATOR . $profileFilePath);
+$profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMatch[0] : '?';
+>>>>>>> 788a3e0914a4b46370eb0fb320c83debc41d05e1
 ?>
 <!-- College Connect Navbar -->
 
@@ -37,10 +58,8 @@ $currentPage = basename(
         <!-- DESKTOP MENU -->
         <div class="cc-nav-menu" id="ccNavMenu">
 
-    
-           
-           
-            <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
+<<<<<<< HEAD
+          <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
            <a href="ask-question.php" class="cc-nav-link<?= $currentPage === 'ask-question.php' ? ' active' : '' ?>"<?= $currentPage === 'ask-question.php' ? ' aria-current="page"' : '' ?>>Ask Question</a>
             <a href="question-history.php" class="cc-nav-link<?= $currentPage === 'question-history.php' ? ' active' : '' ?>"<?= $currentPage === 'question-history.php' ? ' aria-current="page"' : '' ?>>Questions</a>
             <a href="answer.php" class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"<?= $currentPage === 'answer.php' ? ' aria-current="page"' : '' ?>>Answer</a>
@@ -48,11 +67,48 @@ $currentPage = basename(
             <a href="report.php" class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"<?= $currentPage === 'report.php' ? ' aria-current="page"' : '' ?>>Report</a>
             <a href="index.php#events" class="cc-nav-link">Events</a>
             <a href="about.php" class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"<?= $currentPage === 'about.php' ? ' aria-current="page"' : '' ?>>About</a>
+=======
+            <a href="index.php" class="cc-nav-link active">Home</a>
+            <a href="ask_question.php" class="cc-nav-link">Ask Question</a>
+            <a href="community.php" class="cc-nav-link">Community</a>
+            <a href="questions.php" class="cc-nav-link">Questions</a>
+              <a href="alumni.php" class="cc-nav-link">Answer</a>
+            <a href="events.php" class="cc-nav-link">Events</a>
 
+            <a href="about.php" class="cc-nav-link">About</a>
+            <a href="alumni.php" class="cc-nav-link">Alumni</a>
+
+>>>>>>> 90f2f6348ddfe309d4540311a92ebdcd51102fdb
             <!-- MOBILE ACTIONS -->
             <div class="cc-mobile-actions">
-                <a href="login.php" class="cc-login">Login</a>
-                <a href="register.php" class="cc-register">Join Now</a>
+                <?php if (!$is_logged_in): ?>
+                    <a href="login.php" class="cc-login">Login</a>
+                    <a href="register.php" class="cc-register">Join Now</a>
+                <?php else: ?>
+                    <div class="nav-profile-wrapper">
+                        <button class="nav-profile-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+                            <?php if ($hasProfileImage): ?>
+                                <img class="nav-avatar-img" src="<?= htmlspecialchars($profileImagePath, ENT_QUOTES, 'UTF-8') ?>" alt="">
+                            <?php else: ?>
+                                <span class="nav-avatar-fallback" aria-hidden="true"><?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php endif; ?>
+                            <span class="nav-user-meta">
+                                <span class="nav-user-name"><?= htmlspecialchars($profileName, ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="nav-user-role"><?= htmlspecialchars($profileRole, ENT_QUOTES, 'UTF-8') ?></span>
+                            </span>
+                            <span class="nav-chevron" aria-hidden="true">⌄</span>
+                        </button>
+                        <div class="nav-profile-menu" role="menu">
+                            <a class="nav-dropdown-item" role="menuitem" href="profile.php">My Profile</a>
+                            <a class="nav-dropdown-item" role="menuitem" href="questions_history.php">Questions History</a>
+                            <?php if (($_SESSION['role'] ?? null) === 'admin'): ?>
+                                <a class="nav-dropdown-item" role="menuitem" href="admin.php">Admin Panel</a>
+                            <?php endif; ?>
+                            <div class="nav-dropdown-divider" role="separator"></div>
+                            <a class="nav-dropdown-item danger" role="menuitem" href="auth/logout.php">Logout</a>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
 
         </div>
@@ -65,8 +121,34 @@ $currentPage = basename(
                 <span id="ccThemeIcon">☾</span>
             </button>
 
-            <a href="login.php" class="cc-login">Login</a>
-            <a href="register.php" class="cc-register">Join Now</a>
+            <?php if (!$is_logged_in): ?>
+                <a href="login.php" class="cc-login">Login</a>
+                <a href="register.php" class="cc-register">Join Now</a>
+            <?php else: ?>
+                <div class="nav-profile-wrapper">
+                    <button class="nav-profile-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+                        <?php if ($hasProfileImage): ?>
+                            <img class="nav-avatar-img" src="<?= htmlspecialchars($profileImagePath, ENT_QUOTES, 'UTF-8') ?>" alt="">
+                        <?php else: ?>
+                            <span class="nav-avatar-fallback" aria-hidden="true"><?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php endif; ?>
+                        <span class="nav-user-meta">
+                            <span class="nav-user-name"><?= htmlspecialchars($profileName, ENT_QUOTES, 'UTF-8') ?></span>
+                            <span class="nav-user-role"><?= htmlspecialchars($profileRole, ENT_QUOTES, 'UTF-8') ?></span>
+                        </span>
+                        <span class="nav-chevron" aria-hidden="true">⌄</span>
+                    </button>
+                    <div class="nav-profile-menu" role="menu">
+                        <a class="nav-dropdown-item" role="menuitem" href="userprofile.php">My Profile</a>
+                        <a class="nav-dropdown-item" role="menuitem" href="questions-history.php">Questions History</a>
+                        <?php if (($_SESSION['role'] ?? null) === 'admin'): ?>
+                            <a class="nav-dropdown-item" role="menuitem" href="admin.php">Admin Panel</a>
+                        <?php endif; ?>
+                        <div class="nav-dropdown-divider" role="separator"></div>
+                        <a class="nav-dropdown-item danger" role="menuitem" href="auth/logout.php">Logout</a>
+                    </div>
+                </div>
+            <?php endif; ?>
 
             <button class="cc-menu-toggle" id="ccMenuToggle"
                     type="button" aria-label="Open menu"
@@ -285,6 +367,121 @@ $currentPage = basename(
     display: none;
 }
 
+/* PROFILE MENU */
+.nav-profile-wrapper {
+    position: relative;
+}
+
+.nav-profile-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    max-width: 230px;
+    padding: 5px 11px 5px 5px;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    background: var(--bg-surface-muted);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.nav-profile-trigger:hover {
+    border-color: var(--color-primary);
+}
+
+.nav-avatar-img,
+.nav-avatar-fallback {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    place-items: center;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.nav-avatar-fallback {
+    background: var(--gradient-brand);
+    color: var(--text-on-brand);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.nav-user-meta {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.nav-user-name {
+    max-width: 135px;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nav-user-role {
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: capitalize;
+}
+
+.nav-chevron {
+    color: var(--text-secondary);
+    font-size: 16px;
+}
+
+.nav-profile-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 1100;
+    display: none;
+    width: 210px;
+    padding: 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-lg);
+}
+
+.nav-profile-menu.show {
+    display: block;
+}
+
+.nav-dropdown-item {
+    display: flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 13px;
+    text-decoration: none;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.nav-dropdown-item:hover {
+    background: var(--bg-surface-muted);
+    color: var(--color-primary);
+}
+
+.nav-dropdown-item.danger {
+    color: var(--color-danger);
+}
+
+.nav-dropdown-divider {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--border-default);
+}
+
 @media(max-width: 1000px) {
     .cc-nav-container {
         gap: 10px;
@@ -330,10 +527,19 @@ $currentPage = basename(
         display: none;
     }
 
+    .cc-nav-actions > .nav-profile-wrapper {
+        display: none;
+    }
+
     .cc-mobile-actions {
         display: flex;
         gap: 10px;
         margin-top: 12px;
+    }
+
+    .cc-mobile-actions > .nav-profile-wrapper {
+        display: block;
+        width: 100%;
     }
 
     .cc-mobile-actions a {
@@ -364,6 +570,7 @@ $currentPage = basename(
     const themeBtn = document.getElementById("ccThemeBtn");
     const themeIcon = document.getElementById("ccThemeIcon");
     const navLinks = Array.from(menu.querySelectorAll(".cc-nav-link"));
+    const profileWrappers = Array.from(document.querySelectorAll(".nav-profile-wrapper"));
 
     const syncAnchorTab = () => {
         const activeAnchor = navLinks.find(link => {
@@ -405,6 +612,34 @@ $currentPage = basename(
             menu.classList.remove("open");
             menuBtn.setAttribute("aria-expanded", "false");
         });
+    });
+
+    profileWrappers.forEach(wrapper => {
+        const trigger = wrapper.querySelector(".nav-profile-trigger");
+        const profileMenu = wrapper.querySelector(".nav-profile-menu");
+
+        trigger.addEventListener("click", () => {
+            const open = profileMenu.classList.toggle("show");
+            trigger.setAttribute("aria-expanded", String(open));
+        });
+    });
+
+    document.addEventListener("click", event => {
+        profileWrappers.forEach(wrapper => {
+            if (!wrapper.contains(event.target)) {
+                wrapper.querySelector(".nav-profile-menu").classList.remove("show");
+                wrapper.querySelector(".nav-profile-trigger").setAttribute("aria-expanded", "false");
+            }
+        });
+    });
+
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            profileWrappers.forEach(wrapper => {
+                wrapper.querySelector(".nav-profile-menu").classList.remove("show");
+                wrapper.querySelector(".nav-profile-trigger").setAttribute("aria-expanded", "false");
+            });
+        }
     });
 
     // DARK / LIGHT THEME
