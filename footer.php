@@ -1,243 +1,395 @@
-    <footer class="main-footer">
 
-        <div class="footer-container">
+<footer class="main-footer">
 
-            <!-- Top Footer Section -->
-            <div class="footer-top">
+    <div class="footer-container">
 
-                <!-- Brand and Logo -->
-                <div class="footer-brand" style="display: flex; align-items: center; gap: 12px;border-radius: 50%; padding: 8px; background: var(--color-navy-950);">
+        <!-- Brand Section -->
+        <div class="footer-brand">
 
-                    <img
-                        src="./assets/images/Aitamlogo.png"
-                        alt="AITAM College Logo"
-                        class="footer-logo" style="width: 58px; height: 58px; object-fit: contain; border-radius: 50%;">
-                
+            <div class="footer-logo-box">
+                <img src="./assets/images/Aitamlogo.png"
+                     alt="AITAM College Logo"
+                     class="footer-logo">
+            </div>
 
-                    <h2>AITAM <span>SLACK</span></h2>
-
-                </div>
-
-                <!-- Tagline -->
+            <div class="footer-brand-text">
+                <h2>AITAM <span>SLACK</span></h2>
+                <p>College Communication Platform</p>
                 <p class="footer-tagline">
-                    A community where every question can find a helpful answer.
+                    Connect. Communicate. Collaborate.
                 </p>
+            </div>
 
-                <!-- Navigation Links -->
-                <nav class="footer-links">
+        </div>
 
+        <!-- Quick Links -->
+        <div class="footer-links">
+
+            <h3>Quick Links</h3>
+
+            <div class="footer-links-columns">
+
+                <div class="footer-links-column">
                     <a href="index.php">Home</a>
                     <a href="question-history.php">Questions</a>
                     <a href="index.php#events">Events</a>
                     <a href="answer.php">Answers</a>
+                </div>
+
+                <div class="footer-links-column">
                     <a href="leaderboard.php">Leaderboard</a>
                     <a href="report.php">Report</a>
-
-                </nav>
-
-            </div>
-
-            <!-- Divider -->
-            
-
-            <!-- Bottom Footer Section -->
-            <div class="footer-bottom">
-
-                <p class="copyright">
-                    &copy; <?php echo date("Y"); ?> AITAM SLACK
-                </p>
-
-                <p class="developer">
-                    Developed By
-                    <strong>© CSM dep</strong>
-                </p>
-
-                <p class="footer-message">
-                    Built for a more connected campus.
-                </p>
+                    <a href="terms.php">Terms and Conditions</a>
+                </div>
 
             </div>
 
         </div>
 
-    </footer>
+        <!-- About Section -->
+        <div class="footer-about">
+
+            <h3>About AITAM Slack</h3>
+
+            <p>
+                A platform connecting students and faculty
+                to share knowledge and information.
+            </p>
+
+        </div>
+
+        <!-- Contact Us -->
+        <div class="footer-contact">
+
+            <h3>Contact Us</h3>
+
+            <p>
+                <span class="contact-label">Email</span>
+                <a href="mailto:csmdepartment987@gmail.com">
+                    csmdepartment987@gmail.com
+                </a>
+            </p>
+
+            <p>
+                <span class="contact-label">Support</span>
+                <a href="report.php">Report an Issue</a>
+            </p>
+
+        </div>
+
+    </div>
+
+    <!-- Divider -->
+    <div class="footer-divider"></div>
+
+    <!-- Bottom Section -->
+    <div class="footer-bottom">
+
+        <p>
+            &copy; <?php echo date("Y"); ?> AITAM SLACK
+        </p>
+
+        <p>
+            Developed By <strong>© CSM dep</strong>
+        </p>
+
+        <p>
+            Built for a more connected campus.
+        </p>
+
+    </div>
+
+</footer>
 
 
-    <style>
+<style>
 
-    /* ==========================
-    AITAM SLACK FOOTER
-    ========================== */
+/* Main Footer */
+.main-footer {
+    width: 100%;
+    background: var(--gradient-brand);
+    color: var(--text-on-brand);
+    padding: 35px 5% 20px;
+    margin-top: 30px;
+    font-family: var(--font-family-base);
+    box-sizing: border-box;
+}
+
+/* Main Container */
+.footer-container {
+    max-width: 1300px;
+    margin: 0 auto;
+
+    display: grid;
+    grid-template-columns: 1.2fr 1.15fr 1fr 1.25fr;
+
+    column-gap: 35px;
+    row-gap: 25px;
+    align-items: start;
+    padding-bottom: 25px;
+}
+
+/* Brand Section */
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+/* Logo Container */
+.footer-logo-box {
+    width: 68px;
+    height: 68px;
+    min-width: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface);
+    border-radius: 50%;
+    padding: 6px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Logo Image */
+.footer-logo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    border-radius: 50%;
+}
+
+/* Brand Text */
+.footer-brand-text {
+    min-width: 0;
+}
+
+.footer-brand-text h2 {
+    color: var(--text-on-brand);
+    font-size: 23px;
+    margin: 0 0 8px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.footer-brand-text h2 span {
+    color: var(--color-accent);
+}
+
+.footer-brand-text p {
+    color: var(--text-on-brand);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 5px 0;
+}
+
+.footer-brand-text .footer-tagline {
+    color: var(--color-accent);
+    font-weight: 600;
+    font-style: italic;
+    margin-top: 12px;
+}
+
+/* Footer Headings */
+.footer-links h3,
+.footer-about h3,
+.footer-contact h3 {
+    color: var(--color-accent);
+    font-size: 19px;
+    margin: 0 0 17px;
+    font-weight: 700;
+}
+
+/* Quick Links */
+.footer-links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-left: 10px;
+}
+
+/* Quick Links Two Columns */
+.footer-links-columns {
+    display: grid;
+    grid-template-columns: max-content max-content;
+    column-gap: 28px;
+    align-items: start;
+}
+
+.footer-links-column {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+/* Quick Links Text */
+.footer-links a {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    color: var(--text-on-brand);
+    text-decoration: none;
+    font-size: 15px;
+    line-height: 1.6;
+    transition: var(--transition-fast);
+}
+
+/* Simple Hover Like Contact Us */
+.footer-links a:hover {
+    color: var(--color-accent);
+    text-decoration: none;
+}
+
+/* Keyboard Focus */
+.footer-links a:focus-visible {
+    color: var(--color-accent);
+    outline: 2px solid var(--text-on-brand);
+    outline-offset: 3px;
+}
+
+/* About Section */
+.footer-about p {
+    color: var(--text-on-brand);
+    font-size: 15px;
+    line-height: 1.8;
+    margin: 0;
+}
+
+/* Contact Us */
+.footer-contact p {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    color: var(--text-on-brand);
+    font-size: 15px;
+    line-height: 1.7;
+    margin: 0 0 14px;
+    overflow-wrap: anywhere;
+}
+
+.contact-label {
+    color: var(--color-accent);
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.footer-contact a {
+    color: var(--text-on-brand);
+    text-decoration: none;
+    font-size: 15px;
+    transition: var(--transition-fast);
+}
+
+.footer-contact a:hover {
+    color: var(--color-accent);
+}
+
+/* Divider */
+.footer-divider {
+    max-width: 1300px;
+    margin: 0 auto 18px;
+    height: 1px;
+    background: var(--border-strong);
+}
+
+/* Bottom Footer */
+.footer-bottom {
+    max-width: 1300px;
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.footer-bottom p {
+    color: var(--color-accent);
+    font-size: 13px;
+    margin: 5px 0;
+}
+
+.footer-bottom strong {
+    color: var(--text-on-brand);
+}
+
+/* Tablet Responsive */
+@media (max-width: 1050px) {
+
+    .footer-container {
+        grid-template-columns: 1fr 1fr;
+        column-gap: 35px;
+        row-gap: 30px;
+    }
+
+    .footer-links {
+        padding-left: 0;
+    }
+
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
 
     .main-footer {
-        width: 100%;
-        background: var(--color-navy-950);
-        color: var(--text-on-brand);
-        padding: 35px 6% 25px;
-        margin-top: 40px;
-        font-family: var(--font-family-base);
+        padding: 28px 20px 18px;
     }
 
-    /* Main Container */
     .footer-container {
-        max-width: 1140px;
-        width: 100%;
-        margin: auto;
-    }
-
-    /* Top Section */
-    .footer-top {
-        display: grid;
-        grid-template-columns: 1fr 1.5fr 1.5fr;
-        align-items: center;
+        grid-template-columns: 1fr;
         gap: 25px;
-        min-height: 75px;
     }
 
-    /* Brand Section */
     .footer-brand {
-        display: flex;
         align-items: center;
-        gap: 12px;
     }
 
-    .footer-logo {
-        width: 58px;
-        height: 58px;
-        object-fit: contain;
+    .footer-logo-box {
+        width: 60px;
+        height: 60px;
+        min-width: 60px;
     }
 
-    .footer-brand h2 {
-        font-size: 18px;
-        font-weight: 800;
-        margin: 0;
-        color: var(--color-white);
-        white-space: nowrap;
+    .footer-brand-text h2 {
+        font-size: 21px;
     }
 
-    .footer-brand h2 span {
-        font-weight: 400;
-        color: var(--color-white);
+    .footer-links-columns {
+        column-gap: 30px;
     }
 
-    /* Tagline */
-    .footer-tagline {
-        font-size: 12px;
-        color: var(--color-white);
+    .footer-bottom {
+        flex-direction: column;
+        align-items: center;
         text-align: center;
-        margin: 0;
-        line-height: 1.6;
+        gap: 8px;
     }
 
-    /* Navigation */
-    .footer-links {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 18px;
+}
+
+/* Small Mobile */
+@media (max-width: 380px) {
+
+    .footer-links-columns {
+        column-gap: 18px;
     }
 
     .footer-links a {
-        color: var(--color-white);
-        text-decoration: none;
-        font-size: 12px;
-        white-space: nowrap;
-        transition: var(--transition-fast);
+        font-size: 14px;
     }
 
-    .footer-links a:hover {
-        color: var(--color-cyan-100);
+    .footer-brand {
+        gap: 10px;
     }
 
-    /* Divider */
-    .footer-divider {
-        width: 100%;
-        height: 1px;
-        background: var(--color-blue-500);
-        margin: 30px 0 25px;
+    .footer-logo-box {
+        width: 54px;
+        height: 54px;
+        min-width: 54px;
     }
 
-    /* Bottom Section */
-    .footer-bottom {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        align-items: center;
-        gap: 15px;
-    }
+}
 
-    .footer-bottom p {
-        color: var(--color-white);
-        font-size: 11px;
-        margin: 0;
-    }
-
-    .copyright {
-        text-align: left;
-    }
-
-    .developer {
-        text-align: center;
-    }
-
-    .developer strong {
-        margin-left: 8px;
-    }
-
-    .footer-message {
-        text-align: right;
-    }
-
-    /* Responsive Design */
-    @media (max-width: 1000px) {
-
-        .footer-top {
-            grid-template-columns: 1fr;
-            text-align: center;
-            gap: 20px;
-        }
-
-        .footer-brand {
-            justify-content: center;
-        }
-
-        .footer-links {
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-    }
-
-    @media (max-width: 600px) {
-
-        .main-footer {
-            padding: 30px 20px 20px;
-        }
-
-        .footer-logo {
-            width: 50px;
-            height: 50px;
-        }
-
-        .footer-links {
-            gap: 15px;
-        }
-
-        .footer-bottom {
-            grid-template-columns: 1fr;
-            text-align: center;
-            gap: 15px;
-        }
-
-        .copyright,
-        .developer,
-        .footer-message {
-            text-align: center;
-        }
-
-        .footer-divider {
-            margin: 22px 0;
-        }
-
-    }
-
-    </style>
+</style>
