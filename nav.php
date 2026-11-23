@@ -1,11 +1,6 @@
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>College Connect</title>
-    <link rel="stylesheet" href="root.css">
-</head>
-<body>
+<?php
+$currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php');
+?>
 <!-- College Connect Navbar -->
 
 <nav class="cc-navbar">
@@ -25,17 +20,13 @@
         <!-- DESKTOP MENU -->
         <div class="cc-nav-menu" id="ccNavMenu">
 
-            <a href="hero.php" class="cc-nav-link active">Home</a>
-           
-            <a href="question-history.php" class="cc-nav-link">Questions</a>
-              <a href="answer.php" class="cc-nav-link">Answer</a>
-               <a href="leaderboard.php" class="cc-nav-link">Leaderboard</a>
-               <a href="report.php" class="cc-nav-link">Report</a>
-            <a href="events.php" class="cc-nav-link">Events</a>
-         
-            <a href="about.php" class="cc-nav-link">About</a>
-             
-           
+            <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
+            <a href="question-history.php" class="cc-nav-link<?= $currentPage === 'question-history.php' ? ' active' : '' ?>"<?= $currentPage === 'question-history.php' ? ' aria-current="page"' : '' ?>>Questions</a>
+            <a href="answer.php" class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"<?= $currentPage === 'answer.php' ? ' aria-current="page"' : '' ?>>Answer</a>
+            <a href="leaderboard.php" class="cc-nav-link<?= $currentPage === 'leaderboard.php' ? ' active' : '' ?>"<?= $currentPage === 'leaderboard.php' ? ' aria-current="page"' : '' ?>>Leaderboard</a>
+            <a href="report.php" class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"<?= $currentPage === 'report.php' ? ' aria-current="page"' : '' ?>>Report</a>
+            <a href="index.php#events" class="cc-nav-link">Events</a>
+            <a href="index.php#channels" class="cc-nav-link">About</a>
 
             <!-- MOBILE ACTIONS -->
             <div class="cc-mobile-actions">
@@ -312,6 +303,31 @@
     const menuBtn = document.getElementById("ccMenuToggle");
     const themeBtn = document.getElementById("ccThemeBtn");
     const themeIcon = document.getElementById("ccThemeIcon");
+    const navLinks = Array.from(menu.querySelectorAll(".cc-nav-link"));
+
+    const syncAnchorTab = () => {
+        const activeAnchor = navLinks.find(link => {
+            const target = new URL(link.href, window.location.href);
+            return target.pathname === window.location.pathname &&
+                target.hash !== "" &&
+                target.hash === window.location.hash;
+        });
+
+        if (activeAnchor) {
+            navLinks.forEach(link => {
+                const active = link === activeAnchor;
+                link.classList.toggle("active", active);
+                if (active) {
+                    link.setAttribute("aria-current", "page");
+                } else {
+                    link.removeAttribute("aria-current");
+                }
+            });
+        }
+    };
+
+    syncAnchorTab();
+    window.addEventListener("hashchange", syncAnchorTab);
 
     // MOBILE MENU
     menuBtn.addEventListener("click", () => {
@@ -364,5 +380,3 @@
     });
 })();
 </script>
-</body>
-</html>

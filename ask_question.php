@@ -239,7 +239,7 @@ Which subject, technology, department, or process is involved?" required><?= e($
                 </div>
 
                 <div class="cc-form-actions">
-                    <a href="questions.php">Cancel</a>
+                    <a href="question-history.php">Cancel</a>
                     <button type="submit" id="submitQuestionButton"><span>Submit question</span><span>↗</span></button>
                 </div>
                 <p class="cc-submit-note">Your question is checked before it is saved. If the required checks fail or are unavailable, it will not be saved.</p>
@@ -269,7 +269,7 @@ Which subject, technology, department, or process is involved?" required><?= e($
             <article class="cc-side-card cc-help-card">
                 <strong>Need help?</strong>
                 <p>Browse existing discussions. Someone may already have answered your question.</p>
-                <a href="questions.php">Explore questions →</a>
+                <a href="question-history.php">Explore questions →</a>
             </article>
         </aside>
     </div>

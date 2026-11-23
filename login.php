@@ -1,6 +1,14 @@
 <?php
 session_start();
 
+if (
+    !empty($_SESSION['admin_id']) &&
+    ($_SESSION['admin_status'] ?? '') === 'active'
+) {
+    header('Location: admin/dashboard.php');
+    exit;
+}
+
 // Generate CSRF token
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -10,6 +18,9 @@ if (empty($_SESSION['csrf_token'])) {
 $error_msg   = $_SESSION['login_error'] ?? '';
 $success_msg = $_SESSION['register_success'] ?? '';
 unset($_SESSION['login_error'], $_SESSION['register_success']);
+if ($error_msg === '' && ($_GET['error'] ?? '') === 'blocked') {
+    $error_msg = 'Your administrator account is blocked.';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -85,12 +96,12 @@ unset($_SESSION['login_error'], $_SESSION['register_success']);
 
       <!-- Success Banner (e.g., after completing registration) -->
       <div class="alert-banner alert-success <?php echo !empty($success_msg) ? 'show' : ''; ?>">
-        <span><?php echo htmlspecialchars($success_msg); ?></span>
+        <span><?php echo htmlspecialchars($success_msg, ENT_QUOTES, 'UTF-8'); ?></span>
       </div>
 
       <!-- Server-Side Error Banner -->
       <div class="alert-banner alert-danger <?php echo !empty($error_msg) ? 'show' : ''; ?>">
-        <span><?php echo htmlspecialchars($error_msg); ?></span>
+        <span><?php echo htmlspecialchars($error_msg, ENT_QUOTES, 'UTF-8'); ?></span>
       </div>
 
       <form id="loginForm" action="auth/login_process.php" method="POST" novalidate>

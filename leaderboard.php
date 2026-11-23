@@ -1,6 +1,6 @@
 
 <?php
-require_once 'leader-db.php';
+require_once 'lesder-db.php';
 
 // Fetch students based on total points
 $sql = "SELECT id, name, department, year,
@@ -17,7 +17,6 @@ $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $topThree = array_slice($students, 0, 3);
 
 ?>
-<?php include 'nav.php'; ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -242,6 +241,7 @@ $topThree = array_slice($students, 0, 3);
 </head>
 
 <body>
+<?php include 'nav.php'; ?>
 
 <main class="leaderboard-page">
 

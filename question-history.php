@@ -1,6 +1,6 @@
 
 <?php
-require_once 'leader-db.php';
+require_once 'lesder-db.php';
 
 // Fetch question history without requiring a login.
 $questions = [];
@@ -25,7 +25,6 @@ function e($value) {
     return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
 }
 ?>
-<?php include 'nav.php'; ?>    
 
 <!DOCTYPE html>
 <html lang="en">
@@ -198,6 +197,7 @@ function e($value) {
 </head>
 
 <body>
+<?php include 'nav.php'; ?>
 
 <main class="history-container">
 
@@ -285,7 +285,7 @@ function e($value) {
 
     </section>
 
-    <a href="dashboard.php" class="back-link">
+    <a href="index.php" class="back-link">
         Back to Dashboard
     </a>
 

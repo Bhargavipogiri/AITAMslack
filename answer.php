@@ -4,7 +4,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-require_once 'leader-db.php';
+require_once 'lesder-db.php';
 
 // Escape output
 function e($value) {

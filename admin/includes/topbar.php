@@ -114,7 +114,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Admin Panel';
 
                 <li>
                     <a class="dropdown-item logout-dropdown"
-                       href="logout.php">
+                       href="../auth/logout.php">
                         <i class="bi bi-box-arrow-right"></i>
                         Logout
                     </a>
