@@ -98,7 +98,7 @@ $accountMenu = [
     <!-- Logout -->
     <div class="sidebar-logout">
 
-        <a href="logout.php" class="logout-link">
+        <a href="../auth/logout.php" class="logout-link">
 
             <i class="bi bi-box-arrow-right"></i>
 

@@ -24,7 +24,7 @@ function admin_csrf_verify(?string $token): bool
 function require_admin(): void
 {
     if (empty($_SESSION['admin_id'])) {
-        header('Location: /AITAMslack/admin/login.php');
+        header('Location: ../login.php');
         exit;
     }
 
@@ -32,7 +32,7 @@ function require_admin(): void
     if ($status !== 'active') {
         session_unset();
         session_destroy();
-        header('Location: /AITAMslack/admin/login.php?error=blocked');
+        header('Location: ../login.php?error=blocked');
         exit;
     }
 }

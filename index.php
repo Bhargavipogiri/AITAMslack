@@ -5,7 +5,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AITAM Slack | College Community</title>
-<?php include 'nav.php'; ?>
 <style>
 /* ==============================
    AITAM SLACK - DESIGN TOKENS
@@ -1363,6 +1362,8 @@ img {
 <!-- ==============================
      HERO
 ================================= -->
+
+<?php include 'nav.php'; ?>
 
 <main>
 

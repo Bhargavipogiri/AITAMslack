@@ -1,9 +1,3 @@
-    <html>
-        <head>
-            <title>Question History - AITAM SLACK</title>
-            <link rel="stylesheet" href="assets/css/root.css">
-    </head>
-    <body>
     <footer class="main-footer">
 
         <div class="footer-container">
@@ -34,10 +28,10 @@
 
                     <a href="index.php">Home</a>
                     <a href="question-history.php">Questions</a>
-                    <a href="college-updates.php">College updates</a>
-                    <a href="topics.php">Topics</a>
-                    <a href="privacy.php">Privacy</a>
-                    <a href="terms.php">Terms</a>
+                    <a href="index.php#events">Events</a>
+                    <a href="answer.php">Answers</a>
+                    <a href="leaderboard.php">Leaderboard</a>
+                    <a href="report.php">Report</a>
 
                 </nav>
 
@@ -247,5 +241,3 @@
     }
 
     </style>
-    </body>
-    </html>

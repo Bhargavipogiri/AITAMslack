@@ -2,7 +2,7 @@
 // config/db.php
 
 $host     = '127.0.0.1';
-$dbname   = 'aitam_slack';
+$dbname   = 'aitamslack';
 $username = 'root';      // Default XAMPP MySQL user
 $password = '';          // Default XAMPP MySQL password (empty)
 $charset  = 'utf8mb4';
