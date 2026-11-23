@@ -1,6 +1,7 @@
 
 <?php
-session_start();
+require_once __DIR__ . '/includes/auth.php';
+require_admin();
 
 require_once 'includes/db.php';
 
@@ -18,139 +19,15 @@ function e($value) {
     );
 }
 
-$allowedStatuses = ['Pending', 'Published', 'Hidden'];
-
-// ------------------------------------
-// UPDATE ANSWER STATUS
-// ------------------------------------
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST'
-    && isset($_POST['update_status'])) {
-
-    if (
-        !isset($_POST['csrf_token']) ||
-        !hash_equals(
-            $_SESSION['csrf_token'],
-            $_POST['csrf_token']
-        )
-    ) {
-        die('Invalid request. Please refresh the page.');
-    }
-
-    $answerId = filter_input(
-        INPUT_POST,
-        'answer_id',
-        FILTER_VALIDATE_INT
-    );
-
-    $newStatus = $_POST['status'] ?? '';
-
-    if (
-        $answerId &&
-        in_array($newStatus, $allowedStatuses, true)
-    ) {
-        $updateSql = "
-            UPDATE answers
-            SET status = :status
-            WHERE id = :id
-        ";
-
-        $updateStmt = $pdo->prepare($updateSql);
-
-        $updateStmt->execute([
-            ':status' => $newStatus,
-            ':id' => $answerId
-        ]);
-    }
-
-    header('Location: answers.php');
-    exit;
-}
-
-// ------------------------------------
-// SEARCH AND FILTER
-// ------------------------------------
-
+$answersUnavailable = true;
 $search = trim($_GET['search'] ?? '');
 $status = trim($_GET['status'] ?? '');
-
-// ------------------------------------
-// ANSWER STATISTICS
-// ------------------------------------
-
-$totalAnswers = $pdo->query("
-    SELECT COUNT(*)
-    FROM answers
-")->fetchColumn();
-
-$publishedAnswers = $pdo->query("
-    SELECT COUNT(*)
-    FROM answers
-    WHERE status = 'Published'
-")->fetchColumn();
-
-$pendingAnswers = $pdo->query("
-    SELECT COUNT(*)
-    FROM answers
-    WHERE status = 'Pending'
-")->fetchColumn();
-
-$hiddenAnswers = $pdo->query("
-    SELECT COUNT(*)
-    FROM answers
-    WHERE status = 'Hidden'
-")->fetchColumn();
-
-// ------------------------------------
-// FETCH ANSWERS
-// ------------------------------------
-
-$sql = "
-    SELECT
-        a.id,
-        a.question_id,
-        a.user_id,
-        a.answer_text,
-        a.status,
-        a.created_at,
-        q.question_title
-
-    FROM answers a
-
-    LEFT JOIN questions q
-        ON a.question_id = q.id
-
-    WHERE 1=1
-";
-
-$params = [];
-
-if ($search !== '') {
-
-    $sql .= "
-        AND (
-            a.answer_text LIKE :answer_search
-            OR q.question_title LIKE :question_search
-        )
-    ";
-
-    $params[':answer_search'] = "%$search%";
-    $params[':question_search'] = "%$search%";
-}
-
-if (in_array($status, $allowedStatuses, true)) {
-
-    $sql .= " AND a.status = :status";
-
-    $params[':status'] = $status;
-}
-
-$sql .= " ORDER BY a.created_at DESC";
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-
-$answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$allowedStatuses = [];
+$totalAnswers = null;
+$publishedAnswers = null;
+$pendingAnswers = null;
+$hiddenAnswers = null;
+$answers = [];
 
 ?>
 
@@ -204,10 +81,15 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h2>Answer Management</h2>
 
                 <p>
-                    View, search, monitor and manage all
-                    answers submitted by users.
+                    Answer records are unavailable because the existing database does not contain an answers table.
                 </p>
 
+            </div>
+
+            <div class="alert alert-warning" role="alert">
+                <strong>Feature unavailable:</strong>
+                No SQL queries were executed against an answers table.
+                <a href="questions.php" class="alert-link">View Questions</a>
             </div>
 
             <!-- STATISTICS CARDS -->
@@ -224,9 +106,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                         <p>Total Answers</p>
 
-                        <h3>
-                            <?= e($totalAnswers) ?>
-                        </h3>
+                        <h3>Unavailable</h3>
 
                     </div>
 
@@ -243,9 +123,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                         <p>Published Answers</p>
 
-                        <h3>
-                            <?= e($publishedAnswers) ?>
-                        </h3>
+                        <h3>Unavailable</h3>
 
                     </div>
 
@@ -262,9 +140,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                         <p>Pending Answers</p>
 
-                        <h3>
-                            <?= e($pendingAnswers) ?>
-                        </h3>
+                        <h3>Unavailable</h3>
 
                     </div>
 
@@ -281,9 +157,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                         <p>Hidden Answers</p>
 
-                        <h3>
-                            <?= e($hiddenAnswers) ?>
-                        </h3>
+                        <h3>Unavailable</h3>
 
                     </div>
 

@@ -1,6 +1,7 @@
 
 <?php
-session_start();
+require_once __DIR__ . '/includes/auth.php';
+require_admin();
 require_once "includes/db.php";
 
 if (empty($_SESSION["csrf_token"])) {
@@ -25,22 +26,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $action = $_POST["action"] ?? "";
 
     if ($id) {
-        if ($action === "verify") {
-            $stmt = $pdo->prepare(
-                "UPDATE users SET is_verified =
-                CASE WHEN is_verified = 1 THEN 0 ELSE 1 END
-                WHERE id = ?"
-            );
-            $stmt->execute([$id]);
-
-        } elseif ($action === "status") {
-            $stmt = $pdo->prepare(
-                "UPDATE users SET status =
-                CASE WHEN status = 'active'
-                THEN 'blocked' ELSE 'active' END
-                WHERE id = ?"
-            );
-            $stmt->execute([$id]);
+        if (in_array($action, ["verify", "unverify"], true)) {
+            $verified = $action === "verify" ? 1 : 0;
+            $stmt = $pdo->prepare("UPDATE users SET is_verified = ? WHERE id = ?");
+            $stmt->execute([$verified, $id]);
+        } elseif (in_array($action, ["block", "unblock", "status"], true)) {
+            if ($action === "status") {
+                $stmt = $pdo->prepare(
+                    "UPDATE users
+                     SET status = CASE WHEN status = 'active' THEN 'blocked' ELSE 'active' END
+                     WHERE id = ?"
+                );
+                $stmt->execute([$id]);
+            } else {
+                $statusValue = $action === "block" ? "blocked" : "active";
+                $stmt = $pdo->prepare("UPDATE users SET status = ? WHERE id = ?");
+                $stmt->execute([$statusValue, $id]);
+            }
         }
     }
 
@@ -52,27 +54,45 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 $search = trim($_GET["search"] ?? "");
 $role = $_GET["role"] ?? "";
 $status = $_GET["status"] ?? "";
+$page = filter_input(INPUT_GET, "page", FILTER_VALIDATE_INT);
+$page = $page && $page > 0 ? $page : 1;
+$perPage = 20;
 
+$roles = $pdo->query(
+    "SELECT DISTINCT role FROM users WHERE role IS NOT NULL AND role != '' ORDER BY role"
+)->fetchAll(PDO::FETCH_COLUMN);
+
+$countSql = "SELECT COUNT(*) FROM users WHERE 1=1";
 $sql = "SELECT * FROM users WHERE 1=1";
 $params = [];
 
 if ($search !== "") {
     $sql .= " AND (name LIKE ? OR email LIKE ?)";
+    $countSql .= " AND (name LIKE ? OR email LIKE ?)";
     $params[] = "%$search%";
     $params[] = "%$search%";
 }
 
-if (in_array($role, ["student", "faculty", "admin"], true)) {
+if ($role !== "" && in_array($role, $roles, true)) {
     $sql .= " AND role = ?";
+    $countSql .= " AND role = ?";
     $params[] = $role;
 }
 
 if (in_array($status, ["active", "blocked"], true)) {
     $sql .= " AND status = ?";
+    $countSql .= " AND status = ?";
     $params[] = $status;
 }
 
+$countStmt = $pdo->prepare($countSql);
+$countStmt->execute($params);
+$totalFilteredUsers = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalFilteredUsers / $perPage));
+$page = min($page, $totalPages);
+
 $sql .= " ORDER BY id DESC";
+$sql .= " LIMIT " . $perPage . " OFFSET " . (($page - 1) * $perPage);
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);

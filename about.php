@@ -59,7 +59,6 @@
         </div>
     </section>
 
-
     <!-- ABOUT PLATFORM -->
     <section class="about-platform section-container">
 
