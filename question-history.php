@@ -1,6 +1,11 @@
-
 <?php
+<<<<<<< HEAD
 require_once __DIR__ . '/includes/bootstrap.php';
+=======
+session_start();
+
+require_once 'lesder-db.php';
+>>>>>>> 90f2f6348ddfe309d4540311a92ebdcd51102fdb
 
 $questions = [];
 $databaseError = '';

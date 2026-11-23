@@ -1,4 +1,6 @@
-
+<?php
+session_start();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1893,7 +1895,7 @@ img {
   </div>
 </section>
 
-
+ 
 <!-- ==============================
      CALL TO ACTION
 ================================= -->
