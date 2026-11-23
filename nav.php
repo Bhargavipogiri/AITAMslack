@@ -26,6 +26,7 @@
         <div class="cc-nav-menu" id="ccNavMenu">
 
             <a href="index.php" class="cc-nav-link active">Home</a>
+            <a href="ask_question.php" class="cc-nav-link">Ask Question</a>
             <a href="community.php" class="cc-nav-link">Community</a>
             <a href="questions.php" class="cc-nav-link">Questions</a>
               <a href="alumni.php" class="cc-nav-link">Answer</a>
