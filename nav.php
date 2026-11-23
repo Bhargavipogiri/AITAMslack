@@ -25,14 +25,16 @@
         <!-- DESKTOP MENU -->
         <div class="cc-nav-menu" id="ccNavMenu">
 
-            <a href="index.php" class="cc-nav-link active">Home</a>
-            <a href="community.php" class="cc-nav-link">Community</a>
-            <a href="questions.php" class="cc-nav-link">Questions</a>
-              <a href="alumni.php" class="cc-nav-link">Answer</a>
+            <a href="hero.php" class="cc-nav-link active">Home</a>
+           
+            <a href="question-history.php" class="cc-nav-link">Questions</a>
+              <a href="answer.php" class="cc-nav-link">Answer</a>
+               <a href="leaderboard.php" class="cc-nav-link">Leaderboard</a>
+               <a href="report.php" class="cc-nav-link">Report</a>
             <a href="events.php" class="cc-nav-link">Events</a>
          
             <a href="about.php" class="cc-nav-link">About</a>
-             <a href="alumni.php" class="cc-nav-link">Alumni</a>
+             
            
 
             <!-- MOBILE ACTIONS -->
