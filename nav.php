@@ -28,7 +28,7 @@ $currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?
             <a href="events.php" class="cc-nav-link">Events</a>
          
             <a href="about.php" class="cc-nav-link">About</a>
-             <a href="alumni.php" class="cc-nav-link">Alumni</a>
+            
            
             
             <!-- MOBILE ACTIONS -->
