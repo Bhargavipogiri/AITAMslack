@@ -1,11 +1,6 @@
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>College Connect</title>
-    <link rel="stylesheet" href="root.css">
-</head>
-<body>
+<?php
+$currentPage = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php');
+?>
 <!-- College Connect Navbar -->
 
 <nav class="cc-navbar">
@@ -14,10 +9,10 @@
 
         <!-- LOGO -->
         <a href="index.php" class="cc-brand">
-            <div class="cc-logo"><img src="https://www.facultyplus.com/wp-content/uploads/2024/04/AITAM.png" alt="College Connect Logo" width="44" height="44"></div>
+            <div class="cc-logo"><img src="assets/images/logo.png" alt="AITAM College Logo" width="44" height="44"></div>
 
             <div class="cc-brand-text">
-                <h2>College Connect</h2>
+                <h2>AITAM SLACK</h2>
                 <span>AITAM COMMUNITY</span>
             </div>
         </a>
@@ -25,6 +20,7 @@
         <!-- DESKTOP MENU -->
         <div class="cc-nav-menu" id="ccNavMenu">
 
+<<<<<<< HEAD
             <a href="index.php" class="cc-nav-link active">Home</a>
             <a href="ask_question.php" class="cc-nav-link">Ask Question</a>
             <a href="community.php" class="cc-nav-link">Community</a>
@@ -35,6 +31,15 @@
             <a href="about.php" class="cc-nav-link">About</a>
              <a href="alumni.php" class="cc-nav-link">Alumni</a>
            
+=======
+            <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
+            <a href="question-history.php" class="cc-nav-link<?= $currentPage === 'question-history.php' ? ' active' : '' ?>"<?= $currentPage === 'question-history.php' ? ' aria-current="page"' : '' ?>>Questions</a>
+            <a href="answer.php" class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"<?= $currentPage === 'answer.php' ? ' aria-current="page"' : '' ?>>Answer</a>
+            <a href="leaderboard.php" class="cc-nav-link<?= $currentPage === 'leaderboard.php' ? ' active' : '' ?>"<?= $currentPage === 'leaderboard.php' ? ' aria-current="page"' : '' ?>>Leaderboard</a>
+            <a href="report.php" class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"<?= $currentPage === 'report.php' ? ' aria-current="page"' : '' ?>>Report</a>
+            <a href="index.php#events" class="cc-nav-link">Events</a>
+            <a href="about.php" class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"<?= $currentPage === 'about.php' ? ' aria-current="page"' : '' ?>>About</a>
+>>>>>>> 67c9525549835938219df9f21732aa28bcbf9ddf
 
             <!-- MOBILE ACTIONS -->
             <div class="cc-mobile-actions">
@@ -82,6 +87,17 @@
     background: var(--bg-header);
     border-bottom: 1px solid var(--border-default);
     box-shadow: var(--shadow-sm);
+    box-sizing: border-box;
+    font-family: var(--font-family-base, Arial, sans-serif);
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.cc-navbar *,
+.cc-navbar *::before,
+.cc-navbar *::after {
+    box-sizing: border-box;
+    font-family: inherit;
 }
 
 .cc-nav-container {
@@ -104,15 +120,25 @@
 }
 
 .cc-logo {
-    width: 44px;
-    height: 44px;
+    width: 56px;
+    height: 56px;
+    flex: 0 0 56px;
     display: grid;
     place-items: center;
-    border-radius: 13px;
-    background: var(--gradient-brand);
-    color: white;
-    font-size: 25px;
-    font-weight: 800;
+    box-sizing: border-box;
+    padding: 5px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 50%;
+    background: var(--color-white);
+}
+
+.cc-logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
 }
 
 .cc-brand-text h2 {
@@ -120,6 +146,9 @@
     color: var(--text-primary);
     font-size: 18px;
     font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: normal;
+    text-transform: none;
 }
 
 .cc-brand-text span {
@@ -127,6 +156,8 @@
     font-size: 9px;
     font-weight: 800;
     letter-spacing: 1.5px;
+    line-height: 1.2;
+    text-transform: none;
 }
 
 /* MENU */
@@ -138,11 +169,19 @@
 
 .cc-nav-link {
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
     padding: 11px 12px;
     color: var(--text-secondary);
     text-decoration: none;
     font-size: 13px;
     font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
 }
@@ -183,10 +222,15 @@
 
 .cc-login,
 .cc-register {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 10px 17px;
     border-radius: var(--radius-md);
     font-size: 13px;
     font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
     text-decoration: none;
     transition: all var(--transition-fast);
 }
@@ -311,6 +355,31 @@
     const menuBtn = document.getElementById("ccMenuToggle");
     const themeBtn = document.getElementById("ccThemeBtn");
     const themeIcon = document.getElementById("ccThemeIcon");
+    const navLinks = Array.from(menu.querySelectorAll(".cc-nav-link"));
+
+    const syncAnchorTab = () => {
+        const activeAnchor = navLinks.find(link => {
+            const target = new URL(link.href, window.location.href);
+            return target.pathname === window.location.pathname &&
+                target.hash !== "" &&
+                target.hash === window.location.hash;
+        });
+
+        if (activeAnchor) {
+            navLinks.forEach(link => {
+                const active = link === activeAnchor;
+                link.classList.toggle("active", active);
+                if (active) {
+                    link.setAttribute("aria-current", "page");
+                } else {
+                    link.removeAttribute("aria-current");
+                }
+            });
+        }
+    };
+
+    syncAnchorTab();
+    window.addEventListener("hashchange", syncAnchorTab);
 
     // MOBILE MENU
     menuBtn.addEventListener("click", () => {
@@ -363,5 +432,3 @@
     });
 })();
 </script>
-</body>
-</html>

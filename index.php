@@ -5,7 +5,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AITAM Slack | College Community</title>
-<?php include 'nav.php';?>
 <style>
 /* ==============================
    AITAM SLACK - DESIGN TOKENS
@@ -435,24 +434,19 @@ img {
 .hero-visual {
   position: relative;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
-.hero-image-card {
-  position: relative;
-  padding: 24px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: 28px;
-  box-shadow: var(--shadow-lg);
-  transform: rotate(1deg);
-}
-
-.hero-image-card img {
+.hero-image {
+  display: block;
   width: 100%;
   height: 380px;
   object-fit: contain;
-  border-radius: 18px;
-  background: #f7f7f7;
+  object-position: center;
+  background: transparent;
 }
 
 .hero-image-caption {
@@ -630,154 +624,199 @@ img {
 }
 
 /* ==============================
-   AI ASSISTANT
+   AI CONTENT VERIFICATION
 ================================= */
 
-.ai-section {
+.qa-verify-section {
   background: var(--bg-surface);
   border-top: 1px solid var(--border-default);
   border-bottom: 1px solid var(--border-default);
 }
 
-.ai-grid {
+.qa-verify-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
   align-items: center;
-  gap: 80px;
+  gap: 64px;
 }
 
-.ai-content h2 {
+.qa-verify-copy h2 {
   font-size: clamp(30px, 3vw, 42px);
   line-height: 1.2;
   letter-spacing: -1.5px;
   margin-bottom: 20px;
 }
 
-.ai-content > p {
+.qa-verify-copy > p {
   color: var(--text-secondary);
   line-height: 1.9;
   margin-bottom: 28px;
 }
 
-.ai-features {
+.qa-verify-features {
   list-style: none;
   display: grid;
   gap: 14px;
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 
-.ai-features li {
+.qa-verify-features li {
   display: flex;
   align-items: center;
   gap: 12px;
   color: var(--text-secondary);
   font-size: 14px;
+  line-height: 1.6;
 }
 
-.check {
+.qa-verify-feature-icon {
   width: 23px;
   height: 23px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #DDF7EB;
-  color: #16835D;
+  background: var(--bg-surface-muted);
+  color: var(--color-primary);
   font-size: 13px;
   font-weight: 800;
   flex-shrink: 0;
 }
 
-.chat-window {
-  background: var(--bg-app);
-  border: 1px solid var(--border-default);
-  border-radius: 22px;
-  padding: 24px;
-  box-shadow: var(--shadow-md);
+.qa-verify-timeline {
+  position: relative;
+  min-width: 0;
+  scroll-margin-top: 70px;
 }
 
-.chat-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.qa-verify-flow {
+  position: relative;
+}
+
+.qa-verify-flow::before {
+  position: absolute;
+  top: 15px;
+  bottom: 15px;
+  left: 15px;
+  width: 1px;
+  background: var(--border-strong);
+  content: "";
+}
+
+.qa-verify-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  gap: 13px;
   padding-bottom: 20px;
-  border-bottom: 1px solid var(--border-default);
 }
 
-.ai-avatar {
-  width: 45px;
-  height: 45px;
+.qa-verify-stage:last-of-type {
+  padding-bottom: 0;
+}
+
+.qa-verify-marker {
+  width: 31px;
+  height: 31px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: var(--gradient-brand);
-  color: white;
-  font-size: 23px;
-}
-
-.chat-header strong {
-  display: block;
-  font-size: 14px;
-}
-
-.chat-header small {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.chat-message {
-  margin-top: 24px;
-  padding: 16px;
+  z-index: 1;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
   background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: 12px 12px 12px 2px;
-  font-size: 13px;
-  line-height: 1.8;
+  color: var(--color-primary);
 }
 
-.chat-message.user-message {
-  margin-left: 35px;
-  background: var(--color-primary);
-  color: white;
-  border-color: transparent;
-  border-radius: 12px 12px 2px 12px;
+.qa-verify-marker svg {
+  width: 16px;
+  height: 16px;
 }
 
-.chat-message strong {
-  display: block;
-  margin-bottom: 5px;
-}
-
-.chat-input {
-  display: flex;
-  gap: 10px;
-  margin-top: 24px;
-}
-
-.chat-input input {
+.qa-verify-stage-content {
   min-width: 0;
-  flex: 1;
-  padding: 13px 15px;
-  border: 1px solid var(--border-default);
-  border-radius: 10px;
-  background: var(--bg-surface);
+  padding-top: 2px;
+}
+
+.qa-verify-stage-content h3 {
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1.4;
 }
 
-.chat-input button {
-  width: 46px;
-  border: none;
-  border-radius: 10px;
-  background: var(--color-primary);
-  color: white;
-  font-size: 20px;
+.qa-verify-stage-content > p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
-.chat-note {
+.qa-verify-checks,
+.qa-verify-report-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.qa-verify-checks span,
+.qa-verify-report-types span {
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-surface-muted);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.qa-verify-outcomes {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.qa-verify-outcome {
+  display: grid;
+  grid-template-columns: minmax(132px, .8fr) minmax(0, 1.2fr);
+  align-items: start;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--border-default);
+}
+
+.qa-verify-outcome strong {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--text-primary);
   font-size: 11px;
+  line-height: 1.45;
+}
+
+.qa-verify-outcome strong::before {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  content: "";
+}
+
+.qa-verify-outcome.is-review strong::before {
+  background: var(--color-warning);
+}
+
+.qa-verify-outcome p {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.qa-verify-disclaimer {
+  margin: 12px 0 0 44px;
   color: var(--text-muted);
-  margin-top: 12px;
-  text-align: center;
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 /* ==============================
@@ -1127,7 +1166,7 @@ img {
     gap: 40px;
   }
 
-  .hero-image-card img {
+  .hero-image {
     height: 310px;
   }
 
@@ -1135,7 +1174,7 @@ img {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .ai-grid {
+  .qa-verify-grid {
     gap: 40px;
   }
 
@@ -1198,7 +1237,7 @@ img {
     margin: 0 auto;
   }
 
-  .hero-image-card img {
+  .hero-image {
     height: 300px;
   }
 
@@ -1230,7 +1269,7 @@ img {
     flex-direction: column;
   }
 
-  .ai-grid,
+  .qa-verify-grid,
   .announcement-grid {
     grid-template-columns: 1fr;
     gap: 35px;
@@ -1286,11 +1325,7 @@ img {
     width: 100%;
   }
 
-  .hero-image-card {
-    padding: 14px;
-  }
-
-  .hero-image-card img {
+  .hero-image {
     height: 250px;
   }
 
@@ -1319,8 +1354,19 @@ img {
     min-height: auto;
   }
 
-  .chat-window {
-    padding: 16px;
+  .qa-verify-stage {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 11px;
+    padding-bottom: 17px;
+  }
+
+  .qa-verify-outcome {
+    grid-template-columns: minmax(110px, .8fr) minmax(0, 1.2fr);
+    gap: 6px;
+  }
+
+  .qa-verify-disclaimer {
+    margin-left: 41px;
   }
 
   .announcement-card {
@@ -1364,6 +1410,8 @@ img {
      HERO
 ================================= -->
 
+<?php include 'nav.php'; ?>
+
 <main>
 
 <section class="hero" id="home">
@@ -1392,10 +1440,6 @@ img {
         <a href="#channels" class="btn btn-primary">
           Explore Community <span>→</span>
         </a>
-
-        <a href="#assistant" class="btn btn-outline">
-          Meet Your AI Assistant <span>✦</span>
-        </a>
       </div>
 
       <div class="hero-note">
@@ -1407,14 +1451,13 @@ img {
 
     <div class="hero-visual">
 
-      <div class="hero-image-card">
-        <img src="assets/images/aitam.jpeg"
-             alt="AITAM celebrating 25 years of excellence">
+      <img class="hero-image"
+           src="https://adityatekkali.edu.in/ahlaad2k26/25years.png"
+           alt="AITAM celebrating 25 years of excellence">
 
-        <div class="hero-image-caption">
-          <strong>Celebrating 25 Years of Excellence</strong>
-          <span>Silver Jubilee • Est. 2001</span>
-        </div>
+      <div class="hero-image-caption">
+        <strong>Celebrating 25 Years of Excellence</strong>
+        <span>Silver Jubilee • Est. 2001</span>
       </div>
 
       <div class="floating-card floating-one">
@@ -1578,90 +1621,124 @@ img {
 
 
 <!-- ==============================
-     AI ASSISTANT
+     AI CONTENT VERIFICATION
 ================================= -->
 
-<section class="section ai-section" id="assistant">
-  <div class="container ai-grid">
+<section class="section qa-verify-section" id="ai-verification">
+  <div class="container qa-verify-grid">
 
-    <div class="ai-content">
+    <div class="qa-verify-copy">
+      <div class="eyebrow">AI-powered content moderation</div>
 
-      <div class="eyebrow">Your smart campus companion</div>
-
-      <h2>
-        Meet your AI campus assistant.
-      </h2>
+      <h2>Making Academic Discussions Smarter with AI.</h2>
 
       <p>
-        Have a question about AITAM? Get help finding campus
-        information, understanding academic processes, discovering
-        opportunities, and navigating college life.
+        AITAM-SLACK uses Artificial Intelligence to analyze questions and
+        answers shared by students, helping maintain meaningful, relevant,
+        and quality academic discussions across the platform.
       </p>
 
-      <ul class="ai-features">
+      <ul class="qa-verify-features">
         <li>
-          <span class="check">✓</span>
-          Find answers to common college questions
+          <span class="qa-verify-feature-icon" aria-hidden="true">✓</span>
+          Detect irrelevant and meaningless questions and answers.
         </li>
         <li>
-          <span class="check">✓</span>
-          Discover academic resources and opportunities
+          <span class="qa-verify-feature-icon" aria-hidden="true">✓</span>
+          Identify spam, duplicate, and inappropriate content.
         </li>
         <li>
-          <span class="check">✓</span>
-          Get guidance on campus services and activities
+          <span class="qa-verify-feature-icon" aria-hidden="true">✓</span>
+          Automatically report suspicious content to administrators.
         </li>
         <li>
-          <span class="check">✓</span>
-          Explore information from one convenient place
+          <span class="qa-verify-feature-icon" aria-hidden="true">✓</span>
+          Support administrators in maintaining a quality learning environment.
         </li>
       </ul>
 
-      <a href="#join" class="btn btn-primary">
-        Explore AI Assistant <span>→</span>
-      </a>
-
     </div>
 
-    <div class="chat-window">
-
-      <div class="chat-header">
-        <div class="ai-avatar">✦</div>
-        <div>
-          <strong>AITAM AI Assistant</strong>
-          <small>Campus information assistant</small>
+    <div class="qa-verify-timeline" id="ai-verification-workflow">
+      <div class="qa-verify-flow">
+      <article class="qa-verify-stage">
+        <div class="qa-verify-marker" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M7 3.75h7l4.25 4.5v11A1.75 1.75 0 0 1 16.5 21h-9A1.75 1.75 0 0 1 5.75 19.25v-13A2.5 2.5 0 0 1 8.25 3.75Z"/>
+            <path d="M14 4v5h4.5M9 13h6M9 16.5h6"/>
+          </svg>
         </div>
+        <div class="qa-verify-stage-content">
+          <h3>Student Submission</h3>
+          <p>Students submit their questions and answers on the AITAM-SLACK platform.</p>
+        </div>
+      </article>
+
+      <article class="qa-verify-stage">
+        <div class="qa-verify-marker" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3.5v2M12 18.5v2M3.5 12h2m13 0h2M6 6l1.4 1.4m9.2 9.2L18 18m0-12-1.4 1.4m-9.2 9.2L6 18"/>
+            <circle cx="12" cy="12" r="5.25"/>
+            <path d="m10.25 12 1.2 1.2 2.4-2.6"/>
+          </svg>
+        </div>
+        <div class="qa-verify-stage-content">
+          <h3>AI Content Analysis</h3>
+          <p>AI analyzes submitted content based on quality and potential issues.</p>
+          <div class="qa-verify-checks" aria-label="Analysis checks">
+            <span>Relevance</span>
+            <span>Clarity</span>
+            <span>Meaningfulness</span>
+            <span>Spam Detection</span>
+            <span>Duplicate Content</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="qa-verify-stage">
+        <div class="qa-verify-marker" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3.5 19 6v5.3c0 4.4-2.8 7.6-7 9.2-4.2-1.6-7-4.8-7-9.2V6l7-2.5Z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="qa-verify-stage-content">
+          <h3>Issue Detection</h3>
+          <p>AI identifies potentially unnecessary, irrelevant, duplicate, or inappropriate content and generates a report.</p>
+          <div class="qa-verify-outcomes">
+            <div class="qa-verify-outcome">
+              <strong>Acceptable Content</strong>
+              <p>Passes initial AI quality checks and continues through the normal platform workflow.</p>
+            </div>
+            <div class="qa-verify-outcome is-review">
+              <strong>Potentially Unnecessary Content</strong>
+              <p>A possible issue is identified and an automated report is generated for administrator review.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="qa-verify-stage">
+        <div class="qa-verify-marker" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="8" r="3.25"/>
+            <path d="M5 20a7 7 0 0 1 14 0M18 5.5a3 3 0 0 1 0 5.8M20 14a5.4 5.4 0 0 1 2.5 4.6"/>
+          </svg>
+        </div>
+        <div class="qa-verify-stage-content">
+          <h3>Admin Review</h3>
+          <p>Generated reports appear in the appropriate admin sections, where administrators review the content and decide what action should be taken.</p>
+          <div class="qa-verify-report-types" aria-label="Admin report sections">
+            <span>Reported Questions</span>
+            <span>Reported Answers</span>
+          </div>
+        </div>
+      </article>
       </div>
 
-      <div class="chat-message">
-        <strong>AI Assistant</strong>
-        Hi! Welcome to AITAM Slack. How can I help you today?
-      </div>
-
-      <div class="chat-message user-message">
-        Where can I find placement updates?
-      </div>
-
-      <div class="chat-message">
-        <strong>AI Assistant</strong>
-        You can explore the Placements & Careers channel
-        for placement-related information, preparation resources,
-        and career opportunities.
-      </div>
-
-      <form class="chat-input" id="chatForm">
-        <input type="text" id="chatInput"
-               placeholder="Ask about AITAM..."
-               aria-label="Ask the campus assistant"
-               required>
-
-        <button type="submit" aria-label="Send question">↑</button>
-      </form>
-
-      <p class="chat-note">
-        Demo interface — connect an AI service to enable real answers.
+      <p class="qa-verify-disclaimer">
+        Illustrative timeline only — this section does not process submissions. AI-generated reports assist administrators; final moderation decisions remain with them.
       </p>
-
     </div>
 
   </div>
@@ -1957,7 +2034,7 @@ document.getElementById("searchForm").addEventListener("submit", event => {
   if (!query) return;
 
   const searchableElements = document.querySelectorAll(
-    ".channel-card, .announcement-card, .event-card, .ai-content"
+    ".channel-card, .announcement-card, .event-card, .qa-verify-copy"
   );
 
   let matchFound = false;
@@ -2006,52 +2083,6 @@ function showToast(message) {
     toast.classList.remove("show");
   }, 3500);
 }
-
-
-/* --------------------------------
-   AI ASSISTANT DEMO
---------------------------------- */
-
-const chatForm = document.getElementById("chatForm");
-const chatInput = document.getElementById("chatInput");
-const chatWindow = document.querySelector(".chat-window");
-
-chatForm.addEventListener("submit", event => {
-  event.preventDefault();
-
-  const question = chatInput.value.trim();
-
-  if (!question) return;
-
-  const userMessage = document.createElement("div");
-  userMessage.className = "chat-message user-message";
-  userMessage.textContent = question;
-
-  chatForm.before(userMessage);
-
-  const reply = document.createElement("div");
-  reply.className = "chat-message";
-
-  const title = document.createElement("strong");
-  title.textContent = "AITAM AI Assistant";
-
-  const answer = document.createElement("p");
-  answer.textContent =
-    "This is a homepage demonstration. Connect an AI API and " +
-    "your college information database to provide accurate answers " +
-    "to your question.";
-
-  reply.append(title, answer);
-
-  chatForm.before(reply);
-
-  chatInput.value = "";
-
-  chatWindow.scrollIntoView({
-    behavior: "smooth",
-    block: "center"
-  });
-});
 
 
 /* --------------------------------

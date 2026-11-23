@@ -1,6 +1,6 @@
 /* =========================================================
-   College Connect — Authentication Pages Stylesheet
-   Depends on: root.css
+   College Connect — Auth Hero & Form Stylesheet
+   Depends on: assets/css/root.css
    ========================================================= */
 
 *,
@@ -9,218 +9,247 @@
   box-sizing: border-box;
 }
 
-.auth-wrapper {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 1.05fr 1.25fr;
-  background: var(--bg-app);
-}
-
-/* ---------- Left Brand & Value Proposition Panel ---------- */
-.auth-brand-panel {
-  background: var(--gradient-brand);
-  color: var(--text-on-brand);
-  padding: 3rem 3.25rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+/* ---------- Full-Bleed Campus Hero Section ---------- */
+.hero-auth-section {
+  min-height: calc(100vh - 80px);
   position: relative;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 3rem 2.5rem;
+  background-color: var(--color-navy-950);
+  /* REPLACE IMAGE PATH HERE: Your AITAM campus background photo */
+  background-image:
+    linear-gradient(
+      95deg,
+      rgba(15, 40, 84, 0.92) 0%,
+      rgba(28, 77, 141, 0.78) 46%,
+      rgba(15, 40, 84, 0.32) 100%
+    ),
+    url("../images/aitam-campus-bg.jpg");
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
 }
 
-.auth-brand-panel::before {
-  content: "";
-  position: absolute;
-  width: 380px;
-  height: 380px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(189, 232, 245, 0.16) 0%, transparent 70%);
-  top: -90px;
-  right: -90px;
-  pointer-events: none;
+.hero-auth-container {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  align-items: center;
+  gap: 2.5rem;
 }
 
-.brand-logo {
+/* ---------- Left Column: Copy & Glassmorphic Cards ---------- */
+.hero-left {
+  color: var(--color-white);
+  max-width: 540px;
+}
+
+.hero-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  text-decoration: none;
-  color: var(--color-white);
-  font-weight: 700;
-  font-size: 1.35rem;
-  letter-spacing: -0.02em;
-}
-
-.brand-badge {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(189, 232, 245, 0.35);
-  display: grid;
-  place-items: center;
-  color: var(--color-cyan-100);
-}
-
-.brand-hero {
-  margin: 2.5rem 0;
-  max-width: 440px;
-}
-
-.brand-pill {
-  display: inline-block;
-  padding: 0.35rem 0.85rem;
+  gap: 0.45rem;
+  padding: 0.38rem 0.9rem;
   border-radius: 999px;
-  background: rgba(189, 232, 245, 0.16);
+  background: rgba(73, 136, 196, 0.32);
+  border: 1px solid rgba(189, 232, 245, 0.35);
   color: var(--color-cyan-100);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 1.15rem;
+  backdrop-filter: blur(6px);
+}
+
+.hero-left h1 {
+  font-size: clamp(2rem, 3.2vw, 2.85rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  margin: 0 0 1rem;
+  color: var(--color-white);
+}
+
+.hero-left h1 .highlight-gold {
+  color: #FACC15;
+}
+
+.hero-script-heading {
+  font-size: clamp(2.4rem, 3.8vw, 3.3rem);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0 0 0.5rem;
+  color: var(--color-white);
+}
+
+.hero-script-heading .accent-yellow {
+  color: #FACC15;
+  font-style: italic;
+}
+
+.hero-yellow-underline {
+  width: 220px;
+  height: 4px;
+  background: linear-gradient(90deg, #FACC15 0%, transparent 100%);
+  border-radius: 999px;
   margin-bottom: 1.1rem;
 }
 
-.brand-hero h1 {
-  font-size: clamp(1.75rem, 2.6vw, 2.35rem);
-  line-height: 1.2;
-  margin: 0 0 1rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-}
-
-.brand-hero p {
+.hero-description {
   font-size: 0.98rem;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.84);
+  color: rgba(255, 255, 255, 0.9);
   margin: 0 0 2rem;
 }
 
-.sample-qa-card {
-  background: rgba(15, 40, 84, 0.45);
-  border: 1px solid rgba(189, 232, 245, 0.25);
-  backdrop-filter: blur(8px);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
+/* Registration 3-Column Glass Cards */
+.glass-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
 }
 
-.sample-qa-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+.glass-mini-card {
+  background: rgba(15, 40, 84, 0.55);
+  border: 1px solid rgba(189, 232, 245, 0.28);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-md);
+  padding: 1rem 0.75rem;
+  text-align: center;
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.glass-mini-card:hover {
+  transform: translateY(-2px);
+  background: rgba(15, 40, 84, 0.72);
+}
+
+.glass-mini-icon {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 0.55rem;
+  border-radius: var(--radius-sm);
+  background: rgba(73, 136, 196, 0.35);
   color: var(--color-cyan-100);
-  margin-bottom: 0.5rem;
+  display: grid;
+  place-items: center;
 }
 
-.sample-qa-q {
-  font-size: 0.92rem;
+.glass-mini-icon.gold {
+  color: #FACC15;
+}
+
+.glass-mini-card span {
+  display: block;
+  font-size: 0.8rem;
   font-weight: 600;
+  line-height: 1.35;
   color: var(--color-white);
-  margin: 0 0 0.65rem;
 }
 
-.sample-qa-a {
-  font-size: 0.83rem;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.85);
-  margin: 0;
-  padding-left: 0.75rem;
-  border-left: 2px solid var(--color-cyan-100);
-}
-
-
-/* ---------- Right Registration Form Panel ---------- */
-.auth-form-panel {
+/* Login Stacked Glass Pills */
+.glass-pill-stack {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 2rem 1.5rem;
-  position: relative;
+  gap: 0.85rem;
+  max-width: 340px;
 }
 
-.top-bar-actions {
-  width: 100%;
-  max-width: 540px;
+.glass-pill-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.25rem;
-}
-
-.back-home-link {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  transition: color var(--transition-fast);
-}
-
-.back-home-link:hover {
-  color: var(--color-primary);
-}
-
-.theme-toggle-btn {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  color: var(--text-primary);
+  gap: 0.9rem;
+  padding: 0.85rem 1.1rem;
+  background: rgba(15, 40, 84, 0.55);
+  border: 1px solid rgba(189, 232, 245, 0.28);
+  backdrop-filter: blur(10px);
   border-radius: var(--radius-md);
-  padding: 0.45rem 0.75rem;
-  font-size: 0.82rem;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  box-shadow: var(--shadow-sm);
-  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  color: var(--color-white);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
-.theme-toggle-btn:hover {
-  border-color: var(--border-strong);
-  background: var(--bg-surface-muted);
+.glass-pill-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-white);
+  display: grid;
+  place-items: center;
 }
 
-.auth-card {
+.glass-pill-icon.gold {
+  color: #FACC15;
+}
+
+/* ---------- Right Column: Elevated Floating Form Card ---------- */
+.hero-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.auth-floating-card {
   width: 100%;
-  max-width: 540px;
+  max-width: 530px;
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
-  padding: 2.25rem 2.5rem;
-  box-shadow: var(--shadow-md);
+  padding: 2rem 2.25rem;
+  box-shadow: var(--shadow-lg);
 }
 
-.auth-card-header {
-  margin-bottom: 1.65rem;
+.auth-floating-card.login-card {
+  max-width: 440px;
 }
 
-.auth-card-header h2 {
-  margin: 0 0 0.4rem;
-  font-size: 1.55rem;
+.card-header-flex {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.card-avatar-badge {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-white);
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.card-header-flex h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.45rem;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
-.auth-card-header p {
+.card-header-flex p {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   color: var(--text-secondary);
 }
 
-/* Alert Banner (For PHP Server Validation Errors) */
+/* Alerts */
 .alert-banner {
-  padding: 0.8rem 1rem;
+  padding: 0.72rem 0.95rem;
   border-radius: var(--radius-md);
-  font-size: 0.86rem;
-  margin-bottom: 1.25rem;
-  display: none; /* Toggle to flex when errors exist */
+  font-size: 0.84rem;
+  margin-bottom: 1.15rem;
+  display: none;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.55rem;
 }
 
 .alert-banner.show {
@@ -233,114 +262,56 @@
   color: var(--color-danger);
 }
 
-/* Role Selector Grid */
-.form-section-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.55rem;
+.alert-success {
+  background: rgba(22, 131, 93, 0.12);
+  border: 1px solid rgba(22, 131, 93, 0.35);
+  color: var(--color-success);
 }
 
-.required-star {
-  color: var(--color-danger);
-  margin-left: 2px;
-}
-
-.role-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.65rem;
-  margin-bottom: 1.35rem;
-}
-
-.role-option {
-  position: relative;
-}
-
-.role-option input[type="radio"] {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.role-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 0.75rem 0.4rem;
-  background: var(--bg-surface-muted);
-  border: 1.5px solid var(--border-default);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  user-select: none;
-}
-
-.role-card svg {
-  width: 20px;
-  height: 20px;
-  color: var(--text-secondary);
-  margin-bottom: 0.35rem;
-  transition: color var(--transition-fast);
-}
-
-.role-title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.role-sub {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.role-option input[type="radio"]:checked + .role-card {
-  background: var(--bg-surface);
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-
-.role-option input[type="radio"]:checked + .role-card svg {
-  color: var(--color-primary);
-}
-
-/* Form Layout & Inputs */
+/* Form Grid & Inputs with Leading Icons */
 .form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 0.95rem;
 }
 
 .form-group {
-  margin-bottom: 1.1rem;
+  margin-bottom: 1rem;
 }
 
 .form-label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.38rem;
 }
 
-.input-wrapper {
+.required-star {
+  color: var(--color-danger);
+}
+
+.input-icon-group {
   position: relative;
   display: flex;
   align-items: center;
+}
+
+.input-leading-icon {
+  position: absolute;
+  left: 0.8rem;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
 }
 
 .form-control,
 .form-select {
   width: 100%;
-  padding: 0.68rem 0.9rem;
+  padding: 0.65rem 0.85rem 0.65rem 2.35rem;
   font-family: var(--font-family-base);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   color: var(--text-primary);
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
@@ -365,12 +336,12 @@
 }
 
 .form-control.has-toggle {
-  padding-right: 2.6rem;
+  padding-right: 2.5rem;
 }
 
 .password-toggle {
   position: absolute;
-  right: 0.75rem;
+  right: 0.7rem;
   background: none;
   border: none;
   color: var(--text-muted);
@@ -384,29 +355,29 @@
   color: var(--text-primary);
 }
 
-.field-hint {
-  font-size: 0.76rem;
-  color: var(--text-muted);
-  margin-top: 0.3rem;
+/* Info Callout Strip */
+.info-callout-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-surface-muted);
+  border-radius: var(--radius-md);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.15rem;
 }
 
-.field-error {
-  font-size: 0.76rem;
-  color: var(--color-danger);
-  margin-top: 0.3rem;
-  display: none;
+.info-callout-bar svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
 }
 
-.field-error.visible {
-  display: block;
-}
-
-/* Password Strength Bar */
 .strength-meter {
-  height: 4px;
+  height: 3px;
   background: var(--border-default);
   border-radius: 999px;
-  margin-top: 0.45rem;
+  margin-top: 0.4rem;
   overflow: hidden;
 }
 
@@ -416,269 +387,124 @@
   transition: width 220ms ease, background-color 220ms ease;
 }
 
-/* Submit Button */
-.btn-primary {
+.field-error {
+  font-size: 0.74rem;
+  color: var(--color-danger);
+  margin-top: 0.28rem;
+  display: none;
+}
+
+.field-error.visible {
+  display: block;
+}
+
+/* Login Options */
+.form-options-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.15rem;
+  font-size: 0.82rem;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--color-primary);
+}
+
+.forgot-link {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
+}
+
+/* Primary Action Button */
+.btn-submit-primary {
   width: 100%;
-  padding: 0.8rem 1.25rem;
-  margin-top: 0.4rem;
+  padding: 0.78rem 1.25rem;
   font-family: var(--font-family-base);
-  font-size: 0.95rem;
+  font-size: 0.94rem;
   font-weight: 600;
   color: var(--text-on-brand);
   background: var(--color-primary);
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   box-shadow: var(--shadow-sm);
   transition: background-color var(--transition-fast), transform 100ms ease;
 }
 
-.btn-primary:hover {
+.btn-submit-primary:hover {
   background: var(--color-primary-hover);
 }
 
-.btn-primary:active {
+.btn-submit-primary:active {
   transform: translateY(1px);
 }
 
-.auth-footer-text {
+.auth-switch-text {
   text-align: center;
-  margin-top: 1.35rem;
-  font-size: 0.88rem;
+  margin: 1.1rem 0 0;
+  font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
-.auth-footer-text a {
+.auth-switch-text a {
   color: var(--color-primary);
   font-weight: 600;
   text-decoration: none;
 }
 
-.auth-footer-text a:hover {
+.auth-switch-text a:hover {
   text-decoration: underline;
 }
 
 /* ---------- Responsive Breakpoints ---------- */
-@media (max-width: 960px) {
-  .auth-wrapper {
-    grid-template-columns: 1.05fr 1.25fr;
-  }
-
-  .auth-brand-panel {
-    display: none;
-  }
-}
-
-@media (max-width: 540px) {
-  .auth-card {
-    padding: 1.65rem 1.25rem;
-    border-radius: var(--radius-lg);
-  }
-
-  .role-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .form-grid-2 {
+@media (max-width: 1024px) {
+  .hero-auth-container {
     grid-template-columns: 1fr;
-    gap: 0;
+  }
+
+  .hero-left {
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .glass-pill-stack {
+    margin: 0 auto;
+  }
+
+  .hero-right {
+    justify-content: center;
   }
 }
 
-/* ---------- Illustration Card (Replaces .sample-qa-card) ---------- */
-.illustration-card {
-  border-radius: var(--radius-lg);
-  padding: 1.25rem 1rem 0.75rem;
-  box-shadow: var(--shadow-lg);
-  text-align: center;
-  overflow: hidden;
-}
+@media (max-width: 600px) {
+  .hero-auth-section {
+    padding: 1.75rem 1rem;
+  }
 
-.illustration-img {
-  display: block;
-  width: 100%;
-  max-height: 220px;
-  object-fit: contain;
-  margin: 0 auto;
-}
+  .auth-floating-card {
+    padding: 1.5rem 1.25rem;
+  }
 
-/* ---------- Login Page Specific Helpers ---------- */
-.auth-card.login-card {
-  max-width: 460px;
-}
-
-.top-bar-actions.login-bar {
-  max-width: 460px;
-}
-
-.alert-success {
-  background: rgba(22, 131, 93, 0.12);
-  border: 1px solid rgba(22, 131, 93, 0.35);
-  color: var(--color-success);
-}
-
-.form-options-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-  font-size: 0.85rem;
-}
-
-.checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--color-primary);
-  cursor: pointer;
-}
-
-.forgot-link {
-  color: var(--color-primary);
-  font-weight: 500;
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
-
-.forgot-link:hover {
-  color: var(--color-primary-hover);
-  text-decoration: underline;
-}
-
-------------------------------------------------------------
-
-
-/* =========================================================
-   Animated Custom Dropdown Component
-   ========================================================= */
-.custom-select {
-  position: relative;
-  width: 100%;
-  user-select: none;
-}
-
-.custom-select-trigger {
-  width: 100%;
-  padding: 0.68rem 0.9rem;
-  font-family: var(--font-family-base);
-  font-size: 0.92rem;
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  cursor: pointer;
-  text-align: left;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.custom-select-trigger:hover {
-  border-color: var(--border-strong);
-}
-
-.custom-select.open .custom-select-trigger,
-.custom-select-trigger:focus-visible {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-
-.custom-select-value.placeholder {
-  color: var(--text-muted);
-}
-
-.custom-select-arrow {
-  width: 16px;
-  height: 16px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), color var(--transition-fast);
-}
-
-.custom-select.open .custom-select-arrow {
-  transform: rotate(180deg);
-  color: var(--color-primary);
-}
-
-/* Animated Dropdown Menu Panel */
-.custom-select-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  z-index: 50;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  padding: 0.35rem;
-  max-height: 220px;
-  overflow-y: auto;
-  list-style: none;
-  margin: 0;
-
-  /* Initial hidden state for animation */
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-8px) scale(0.98);
-  transform-origin: top center;
-  transition:
-    opacity 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 220ms;
-}
-
-.custom-select.open .custom-select-menu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0) scale(1);
-}
-
-.custom-select-option {
-  padding: 0.55rem 0.75rem;
-  font-size: 0.88rem;
-  color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  transition: background-color 140ms ease, color 140ms ease, padding-left 140ms ease;
-}
-
-.custom-select-option:hover {
-  background: var(--bg-surface-muted);
-  color: var(--color-primary);
-  padding-left: 0.95rem;
-}
-
-.custom-select-option.selected {
-  background: rgba(28, 77, 141, 0.1);
-  color: var(--color-primary);
-  font-weight: 600;
-}
-
-[data-theme="dark"] .custom-select-option.selected {
-  background: rgba(73, 136, 196, 0.18);
-}
-
-/* Subtle custom scrollbar for Department dropdown */
-.custom-select-menu::-webkit-scrollbar {
-  width: 6px;
-}
-
-.custom-select-menu::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 999px;
+  .form-grid-2,
+  .glass-feature-grid {
+    grid-template-columns: 1fr;
+  }
 }
