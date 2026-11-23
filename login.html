@@ -1,11 +1,729 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AITAM Slack — Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(168, 85, 247, 0.28), transparent 42%),
+        radial-gradient(circle at 85% 25%, rgba(14, 165, 233, 0.26), transparent 42%),
+        radial-gradient(circle at 50% 85%, rgba(236, 72, 153, 0.22), transparent 48%),
+        linear-gradient(135deg, #1e1b4b 0%, #311042 52%, #0f172a 100%);
+    }
+
+    .auth-gradient {
+      background: linear-gradient(135deg, #7c3aed 0%, #db2777 55%, #ea580c 100%);
+    }
+
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-panel {
+      animation: fadeSlideUp 0.24s ease-out forwards;
+    }
+  </style>
 </head>
-<body>
-    
+<body class="flex items-center justify-center p-4 sm:p-6">
+  <main class="w-full max-w-md rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+    <!-- Top Accent Bar -->
+    <div class="mb-5 h-1.5 w-20 rounded-full bg-gradient-to-r from-violet-600 via-pink-500 to-amber-500"></div>
+
+    <!-- Page Header (Title Only, No Logos) -->
+    <div>
+      <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">AITAM Slack</h1>
+      <p id="page-subtitle" class="mt-1 text-sm font-medium text-slate-600">Sign in with email and password verification.</p>
+    </div>
+
+    <!-- Status Alert Banner -->
+    <div id="status-alert" class="animate-panel mt-4 hidden rounded-2xl border p-3.5 text-xs font-semibold sm:text-sm" role="alert" aria-live="polite">
+      <div class="flex items-start justify-between gap-2">
+        <span id="status-alert-message" class="leading-relaxed"></span>
+        <button type="button" onclick="dismissAlert()" class="shrink-0 rounded-lg px-1.5 py-0.5 text-xs font-bold opacity-75 hover:opacity-100" aria-label="Dismiss alert">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 1: LOGIN & CREDENTIAL VERIFICATION FORM                        -->
+    <!-- =================================================================== -->
+    <section id="login-view" class="mt-6">
+      <form id="aitam-login-form" onsubmit="handleLoginSubmit(event)" novalidate class="space-y-4">
+        <!-- Email Field + Real-Time Format & Domain Check -->
+        <div>
+          <div class="flex items-center justify-between gap-2">
+            <label for="login-email" class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Email <span class="text-rose-600">*</span>
+            </label>
+            <span id="email-live-badge" class="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">
+              Awaiting email
+            </span>
+          </div>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            placeholder="name@adityatekkali.edu.in or guest@aitamslack.edu"
+            oninput="handleEmailLiveCheck()"
+            class="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50/70 px-4 py-2.5 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition focus:border-violet-600 focus:bg-white focus:ring-4 focus:ring-violet-500/15"
+          />
+          <p id="error-email" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
+        </div>
+
+        <!-- Password Field + Visibility Toggle + Real-Time Requirement Checklist -->
+        <div>
+          <div class="flex items-center justify-between">
+            <label for="login-password" class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Password <span class="text-rose-600">*</span>
+            </label>
+            <button
+              type="button"
+              id="toggle-password-btn"
+              onclick="togglePasswordVisibility()"
+              aria-pressed="false"
+              class="rounded-lg px-2 py-0.5 text-xs font-bold text-violet-700 transition hover:bg-violet-50 hover:text-violet-900"
+            >
+              Show
+            </button>
+          </div>
+          <input
+            id="login-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Enter your password"
+            oninput="handlePasswordLiveCheck()"
+            class="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50/70 px-4 py-2.5 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition focus:border-violet-600 focus:bg-white focus:ring-4 focus:ring-violet-500/15"
+          />
+          <p id="error-password" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
+
+          <!-- Password Strength & Requirement Checks -->
+          <div class="mt-2.5 rounded-2xl border border-slate-200 bg-slate-50/90 p-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-600">Password Checks</span>
+              <span id="password-strength-label" class="font-extrabold text-slate-500">Not entered</span>
+            </div>
+            <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div id="password-strength-bar" class="h-full w-0 rounded-full bg-slate-400 transition-all duration-200"></div>
+            </div>
+            <ul class="mt-2.5 grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2">
+              <li id="req-length" class="flex items-center gap-1.5 font-medium text-slate-500">
+                <span id="req-length-icon" class="font-bold">○</span>
+                <span>8+ characters</span>
+              </li>
+              <li id="req-upper" class="flex items-center gap-1.5 font-medium text-slate-500">
+                <span id="req-upper-icon" class="font-bold">○</span>
+                <span>Uppercase letter</span>
+              </li>
+              <li id="req-number" class="flex items-center gap-1.5 font-medium text-slate-500">
+                <span id="req-number-icon" class="font-bold">○</span>
+                <span>Number (0–9)</span>
+              </li>
+              <li id="req-special" class="flex items-center gap-1.5 font-medium text-slate-500">
+                <span id="req-special-icon" class="font-bold">○</span>
+                <span>Special character</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Primary Verify & Authenticate Button -->
+        <button
+          type="submit"
+          id="verify-signin-btn"
+          class="auth-gradient w-full rounded-2xl px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-pink-900/25 transition hover:-translate-y-0.5 hover:opacity-95 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Verify &amp; Sign In
+        </button>
+      </form>
+
+      <!-- Interactive Demo Credentials Box -->
+      <div class="mt-5 rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/80 to-fuchsia-50/50 p-3.5">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs font-extrabold uppercase tracking-wider text-violet-900">Demo Credentials</span>
+          <span class="text-[11px] font-semibold text-violet-700">Click to fill</span>
+        </div>
+        <div class="mt-2.5 space-y-2">
+          <button
+            type="button"
+            onclick="fillDemoAccount('campus')"
+            class="flex w-full items-center justify-between rounded-xl border border-violet-200 bg-white px-3 py-2 text-left text-xs transition hover:border-violet-400 hover:bg-violet-50/40"
+          >
+            <div>
+              <div class="font-bold text-slate-900">Campus Member</div>
+              <div class="font-medium text-slate-500">student@adityatekkali.edu.in • Aitam@2026</div>
+            </div>
+            <span class="rounded-lg bg-violet-100 px-2 py-1 font-bold text-violet-800">Fill</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="fillDemoAccount('visitor')"
+            class="flex w-full items-center justify-between rounded-xl border border-violet-200 bg-white px-3 py-2 text-left text-xs transition hover:border-violet-400 hover:bg-violet-50/40"
+          >
+            <div>
+              <div class="font-bold text-slate-900">Visitor Account</div>
+              <div class="font-medium text-slate-500">visitor@aitamslack.edu • GuestPass#1</div>
+            </div>
+            <span class="rounded-lg bg-pink-100 px-2 py-1 font-bold text-pink-800">Fill</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 2: SECOND-STEP VERIFICATION CODE PANEL                          -->
+    <!-- =================================================================== -->
+    <section id="verification-step-view" class="animate-panel mt-6 hidden">
+      <div class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-xs sm:text-sm">
+        <div class="font-extrabold text-amber-950">Verification Step Active</div>
+        <p class="mt-1 text-amber-900">
+          Credentials checked for <strong id="pending-email-display"></strong>. Enter the 6-digit verification code below to complete authentication.
+        </p>
+        <div class="mt-2 inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-slate-800 border border-amber-200">
+          <span>Active Code:</span>
+          <span id="generated-otp-code" class="tracking-widest text-violet-700"></span>
+          <button type="button" onclick="useGeneratedCode()" class="ml-1 text-[11px] font-extrabold text-pink-600 underline hover:text-pink-800">
+            Auto-fill
+          </button>
+        </div>
+      </div>
+
+      <form id="otp-verification-form" onsubmit="handleOtpVerifySubmit(event)" novalidate class="mt-4 space-y-4">
+        <div>
+          <label for="verification-code-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+            6-Digit Verification Code <span class="text-rose-600">*</span>
+          </label>
+          <input
+            id="verification-code-input"
+            type="text"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="Enter 6-digit code"
+            oninput="clearOtpError()"
+            class="mt-1.5 w-full rounded-xl border border-slate-300 bg-slate-50/70 px-4 py-2.5 text-center text-base font-extrabold tracking-[0.35em] text-slate-900 placeholder-slate-400 outline-none transition focus:border-violet-600 focus:bg-white focus:ring-4 focus:ring-violet-500/15"
+          />
+          <p id="error-otp" class="mt-1 hidden text-xs font-semibold text-rose-600"></p>
+        </div>
+
+        <div class="flex flex-col gap-2.5 sm:flex-row">
+          <button
+            type="button"
+            onclick="cancelVerificationStep()"
+            class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50 sm:w-auto sm:text-sm"
+          >
+            Back
+          </button>
+          <button
+            type="submit"
+            class="auth-gradient flex-1 rounded-2xl px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-pink-900/25 transition hover:-translate-y-0.5 hover:opacity-95"
+          >
+            Complete Authentication
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 3: AUTHENTICATED SESSION STATE PANEL                           -->
+    <!-- =================================================================== -->
+    <section id="authenticated-view" class="animate-panel mt-6 hidden">
+      <div class="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50/70 p-4 sm:p-5">
+        <div class="flex items-center justify-between gap-2">
+          <span class="rounded-full bg-emerald-600 px-3 py-0.5 text-xs font-extrabold text-white">
+            Authenticated
+          </span>
+          <span id="session-tier-badge" class="rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-violet-800 border border-emerald-200"></span>
+        </div>
+
+        <h2 class="mt-3 text-lg font-extrabold text-slate-900">Session Active</h2>
+        <p class="mt-0.5 text-xs text-slate-600">Your email and password have been verified and authenticated.</p>
+
+        <dl class="mt-3.5 space-y-2 rounded-xl border border-emerald-200/90 bg-white/95 p-3.5 text-xs sm:text-sm">
+          <div class="flex justify-between gap-3">
+            <dt class="font-semibold text-slate-500">Account Email:</dt>
+            <dd id="session-email" class="break-all text-right font-bold text-slate-900"></dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="font-semibold text-slate-500">Verification:</dt>
+            <dd id="session-verification-status" class="text-right font-bold text-emerald-700">Email &amp; Password Verified</dd>
+          </div>
+          <div class="flex justify-between gap-3">
+            <dt class="font-semibold text-slate-500">Signed In At:</dt>
+            <dd id="session-timestamp" class="text-right font-semibold text-slate-700"></dd>
+          </div>
+        </dl>
+
+        <div class="mt-4 flex flex-col gap-2.5 sm:flex-row">
+          <button
+            type="button"
+            onclick="reverifySession()"
+            class="flex-1 rounded-2xl border border-violet-300 bg-white px-4 py-2.5 text-xs font-extrabold text-violet-800 transition hover:bg-violet-50 sm:text-sm"
+          >
+            Re-Verify Code
+          </button>
+          <button
+            type="button"
+            onclick="signOutSession()"
+            class="flex-1 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-slate-800 sm:text-sm"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // =========================================================================
+    // INTERACTIVE LOGIN, VERIFICATION & AUTHENTICATION STATE LOGIC
+    // =========================================================================
+    const DEMO_ACCOUNTS = {
+      campus: {
+        email: 'student@adityatekkali.edu.in',
+        password: 'Aitam@2026',
+        tier: 'Campus Verified'
+      },
+      visitor: {
+        email: 'visitor@aitamslack.edu',
+        password: 'GuestPass#1',
+        tier: 'External Guest'
+      }
+    };
+
+    const authState = {
+      stage: 'login', // 'login' | 'verify' | 'authenticated'
+      pendingEmail: '',
+      pendingPassword: '',
+      verificationCode: '',
+      authenticatedEmail: '',
+      authenticatedTier: '',
+      signedInAt: ''
+    };
+
+    /**
+     * Displays a styled status alert banner ('success' | 'error' | 'info' | 'warning').
+     */
+    function showAlert(type, message) {
+      const alertBox = document.getElementById('status-alert');
+      const alertMsg = document.getElementById('status-alert-message');
+
+      const styles = {
+        success: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+        error: 'border-rose-300 bg-rose-50 text-rose-900',
+        warning: 'border-amber-300 bg-amber-50 text-amber-950',
+        info: 'border-violet-300 bg-violet-50 text-violet-950'
+      };
+
+      alertBox.className = `animate-panel mt-4 rounded-2xl border p-3.5 text-xs font-semibold sm:text-sm ${styles[type] || styles.info}`;
+      alertMsg.textContent = message;
+      alertBox.classList.remove('hidden');
+    }
+
+    /**
+     * Hides the status alert banner.
+     */
+    function dismissAlert() {
+      document.getElementById('status-alert').classList.add('hidden');
+    }
+
+    /**
+     * Switches between 'login', 'verify', and 'authenticated' views.
+     */
+    function setViewStage(stage) {
+      authState.stage = stage;
+      const loginView = document.getElementById('login-view');
+      const verifyView = document.getElementById('verification-step-view');
+      const authView = document.getElementById('authenticated-view');
+      const subtitle = document.getElementById('page-subtitle');
+
+      loginView.classList.add('hidden');
+      verifyView.classList.add('hidden');
+      authView.classList.add('hidden');
+
+      if (stage === 'login') {
+        loginView.classList.remove('hidden');
+        subtitle.textContent = 'Sign in with email and password verification.';
+      } else if (stage === 'verify') {
+        verifyView.classList.remove('hidden');
+        subtitle.textContent = 'Complete verification step to authenticate.';
+      } else if (stage === 'authenticated') {
+        authView.classList.remove('hidden');
+        subtitle.textContent = 'Authenticated session active.';
+      }
+    }
+
+    /**
+     * Validates email syntax and checks if it belongs to AITAM's domain.
+     */
+    function evaluateEmail(rawEmail) {
+      const trimmed = rawEmail.trim();
+      const formatValid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed);
+      const isAitamDomain = formatValid && trimmed.toLowerCase().endsWith('@adityatekkali.edu.in');
+      return { trimmed, formatValid, isAitamDomain };
+    }
+
+    /**
+     * Live check as user types into the Email field.
+     */
+    function handleEmailLiveCheck() {
+      clearFieldError('email');
+      const input = document.getElementById('login-email');
+      const badge = document.getElementById('email-live-badge');
+      const { trimmed, formatValid, isAitamDomain } = evaluateEmail(input.value);
+
+      if (!trimmed) {
+        badge.textContent = 'Awaiting email';
+        badge.className = 'rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500';
+        return;
+      }
+
+      if (!formatValid) {
+        badge.textContent = 'Invalid format';
+        badge.className = 'rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-700';
+        return;
+      }
+
+      if (isAitamDomain) {
+        badge.textContent = 'AITAM Domain Verified';
+        badge.className = 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800';
+      } else {
+        badge.textContent = 'Valid Email';
+        badge.className = 'rounded-full bg-violet-100 px-2.5 py-0.5 text-[11px] font-bold text-violet-800';
+      }
+    }
+
+    /**
+     * Evaluates password requirements and strength score.
+     */
+    function evaluatePassword(password) {
+      const hasLength = password.length >= 8;
+      const hasUpper = /[A-Z]/.test(password);
+      const hasNumber = /[0-9]/.test(password);
+      const hasSpecial = /[^A-Za-z0-9]/.test(password);
+      const score = [hasLength, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
+
+      return { hasLength, hasUpper, hasNumber, hasSpecial, score };
+    }
+
+    /**
+     * Updates a single password requirement row and icon.
+     */
+    function setRequirementItem(idPrefix, met) {
+      const row = document.getElementById(`req-${idPrefix}`);
+      const icon = document.getElementById(`req-${idPrefix}-icon`);
+      if (!row || !icon) return;
+
+      if (met) {
+        row.className = 'flex items-center gap-1.5 font-semibold text-emerald-700';
+        icon.textContent = '✓';
+      } else {
+        row.className = 'flex items-center gap-1.5 font-medium text-slate-500';
+        icon.textContent = '○';
+      }
+    }
+
+    /**
+     * Live check as user types into the Password field.
+     */
+    function handlePasswordLiveCheck() {
+      clearFieldError('password');
+      const password = document.getElementById('login-password').value;
+      const { hasLength, hasUpper, hasNumber, hasSpecial, score } = evaluatePassword(password);
+
+      setRequirementItem('length', hasLength);
+      setRequirementItem('upper', hasUpper);
+      setRequirementItem('number', hasNumber);
+      setRequirementItem('special', hasSpecial);
+
+      const bar = document.getElementById('password-strength-bar');
+      const label = document.getElementById('password-strength-label');
+
+      if (!password) {
+        bar.style.width = '0%';
+        bar.className = 'h-full w-0 rounded-full bg-slate-400 transition-all duration-200';
+        label.textContent = 'Not entered';
+        label.className = 'font-extrabold text-slate-500';
+        return;
+      }
+
+      const widths = ['25%', '50%', '75%', '100%'];
+      const colors = [
+        'bg-rose-500 text-rose-700',
+        'bg-amber-500 text-amber-700',
+        'bg-sky-500 text-sky-700',
+        'bg-emerald-500 text-emerald-700'
+      ];
+      const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+
+      const idx = Math.max(0, score - 1);
+      const [barColor, textColor] = colors[idx].split(' ');
+
+      bar.style.width = widths[idx];
+      bar.className = `h-full rounded-full transition-all duration-200 ${barColor}`;
+      label.textContent = labels[idx];
+      label.className = `font-extrabold ${textColor}`;
+    }
+
+    /**
+     * Toggles password visibility between 'password' and 'text'.
+     */
+    function togglePasswordVisibility() {
+      const input = document.getElementById('login-password');
+      const btn = document.getElementById('toggle-password-btn');
+      const show = input.type === 'password';
+
+      input.type = show ? 'text' : 'password';
+      btn.textContent = show ? 'Hide' : 'Show';
+      btn.setAttribute('aria-pressed', String(show));
+    }
+
+    /**
+     * Shows field-level validation error styling.
+     */
+    function showFieldError(field, message) {
+      const errEl = document.getElementById(`error-${field}`);
+      const inputEl = document.getElementById(field === 'email' ? 'login-email' : 'login-password');
+
+      if (errEl) {
+        errEl.textContent = message;
+        errEl.classList.remove('hidden');
+      }
+      if (inputEl) {
+        inputEl.classList.remove('border-slate-300');
+        inputEl.classList.add('border-rose-500', 'bg-rose-50/40');
+      }
+    }
+
+    /**
+     * Clears field-level validation error styling.
+     */
+    function clearFieldError(field) {
+      const errEl = document.getElementById(`error-${field}`);
+      const inputEl = document.getElementById(field === 'email' ? 'login-email' : 'login-password');
+
+      if (errEl) {
+        errEl.textContent = '';
+        errEl.classList.add('hidden');
+      }
+      if (inputEl) {
+        inputEl.classList.remove('border-rose-500', 'bg-rose-50/40');
+        inputEl.classList.add('border-slate-300');
+      }
+    }
+
+    /**
+     * Populates the email and password fields from a demo account preset.
+     */
+    function fillDemoAccount(key) {
+      const preset = DEMO_ACCOUNTS[key];
+      if (!preset) return;
+
+      document.getElementById('login-email').value = preset.email;
+      document.getElementById('login-password').value = preset.password;
+      handleEmailLiveCheck();
+      handlePasswordLiveCheck();
+      dismissAlert();
+      showAlert('info', `Filled ${key === 'campus' ? 'Campus Member' : 'Visitor'} demo credentials. Click "Verify & Sign In" to continue.`);
+    }
+
+    /**
+     * Generates a random 6-digit verification code.
+     */
+    function generateSixDigitCode() {
+      return String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    /**
+     * Handles initial email & password verification and transitions to the verification step.
+     */
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+      dismissAlert();
+
+      const emailInput = document.getElementById('login-email');
+      const passwordInput = document.getElementById('login-password');
+      const { trimmed: emailVal, formatValid, isAitamDomain } = evaluateEmail(emailInput.value);
+      const passwordVal = passwordInput.value;
+
+      let valid = true;
+      clearFieldError('email');
+      clearFieldError('password');
+
+      if (!emailVal) {
+        showFieldError('email', 'Please enter your email address.');
+        valid = false;
+      } else if (!formatValid) {
+        showFieldError('email', 'Please enter a valid email format (e.g., user@domain.com).');
+        valid = false;
+      }
+
+      const pwdCheck = evaluatePassword(passwordVal);
+      if (!passwordVal) {
+        showFieldError('password', 'Please enter your password.');
+        valid = false;
+      } else if (!pwdCheck.hasLength) {
+        showFieldError('password', 'Password must be at least 8 characters long.');
+        valid = false;
+      } else if (pwdCheck.score < 3) {
+        showFieldError('password', 'Include uppercase, number, or special character to pass verification.');
+        valid = false;
+      }
+
+      if (!valid) {
+        showAlert('error', 'Please fix the highlighted email or password verification issues.');
+        return;
+      }
+
+      const code = generateSixDigitCode();
+      authState.pendingEmail = emailVal;
+      authState.pendingPassword = passwordVal;
+      authState.verificationCode = code;
+      authState.authenticatedTier = isAitamDomain ? 'Campus Verified (@adityatekkali.edu.in)' : 'Verified Member';
+
+      document.getElementById('pending-email-display').textContent = emailVal;
+      document.getElementById('generated-otp-code').textContent = code;
+      document.getElementById('verification-code-input').value = '';
+      clearOtpError();
+
+      setViewStage('verify');
+      showAlert('warning', `Verification code ${code} generated for ${emailVal}. Enter or auto-fill it to authenticate.`);
+      document.getElementById('verification-code-input').focus();
+    }
+
+    /**
+     * Auto-fills the generated 6-digit verification code into the input.
+     */
+    function useGeneratedCode() {
+      if (!authState.verificationCode) return;
+      document.getElementById('verification-code-input').value = authState.verificationCode;
+      clearOtpError();
+    }
+
+    /**
+     * Clears OTP input error state.
+     */
+    function clearOtpError() {
+      const errEl = document.getElementById('error-otp');
+      const inputEl = document.getElementById('verification-code-input');
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+      inputEl.classList.remove('border-rose-500', 'bg-rose-50/40');
+      inputEl.classList.add('border-slate-300');
+    }
+
+    /**
+     * Cancels the verification step and returns to the login form.
+     */
+    function cancelVerificationStep() {
+      dismissAlert();
+      setViewStage('login');
+      showAlert('info', 'Returned to email and password entry.');
+    }
+
+    /**
+     * Verifies the 6-digit code and completes authentication.
+     */
+    function handleOtpVerifySubmit(event) {
+      event.preventDefault();
+      const inputEl = document.getElementById('verification-code-input');
+      const enteredCode = inputEl.value.trim();
+
+      if (!/^\d{6}$/.test(enteredCode)) {
+        const errEl = document.getElementById('error-otp');
+        errEl.textContent = 'Enter a valid 6-digit numeric verification code.';
+        errEl.classList.remove('hidden');
+        inputEl.classList.add('border-rose-500', 'bg-rose-50/40');
+        showAlert('error', 'Verification failed: enter all 6 digits.');
+        return;
+      }
+
+      if (enteredCode !== authState.verificationCode) {
+        const errEl = document.getElementById('error-otp');
+        errEl.textContent = `Code does not match. Expected ${authState.verificationCode} or click Auto-fill.`;
+        errEl.classList.remove('hidden');
+        inputEl.classList.add('border-rose-500', 'bg-rose-50/40');
+        showAlert('error', 'Verification code mismatch. Please try again.');
+        return;
+      }
+
+      authState.authenticatedEmail = authState.pendingEmail;
+      authState.signedInAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      document.getElementById('session-email').textContent = authState.authenticatedEmail;
+      document.getElementById('session-tier-badge').textContent = authState.authenticatedTier;
+      document.getElementById('session-timestamp').textContent = authState.signedInAt;
+
+      setViewStage('authenticated');
+      showAlert('success', `Authenticated successfully as ${authState.authenticatedEmail}.`);
+    }
+
+    /**
+     * Triggers a fresh verification code challenge for the currently authenticated session.
+     */
+    function reverifySession() {
+      const code = generateSixDigitCode();
+      authState.pendingEmail = authState.authenticatedEmail;
+      authState.verificationCode = code;
+
+      document.getElementById('pending-email-display').textContent = authState.pendingEmail;
+      document.getElementById('generated-otp-code').textContent = code;
+      document.getElementById('verification-code-input').value = '';
+      clearOtpError();
+
+      setViewStage('verify');
+      showAlert('warning', `New verification code ${code} issued for ${authState.pendingEmail}.`);
+    }
+
+    /**
+     * Signs out of the authenticated session and resets the login form cleanly.
+     */
+    function signOutSession() {
+      const previousEmail = authState.authenticatedEmail;
+      authState.pendingEmail = '';
+      authState.pendingPassword = '';
+      authState.verificationCode = '';
+      authState.authenticatedEmail = '';
+      authState.authenticatedTier = '';
+      authState.signedInAt = '';
+
+      const form = document.getElementById('aitam-login-form');
+      form.reset();
+      document.getElementById('login-password').type = 'password';
+      const toggleBtn = document.getElementById('toggle-password-btn');
+      toggleBtn.textContent = 'Show';
+      toggleBtn.setAttribute('aria-pressed', 'false');
+
+      clearFieldError('email');
+      clearFieldError('password');
+      handleEmailLiveCheck();
+      handlePasswordLiveCheck();
+
+      setViewStage('login');
+      showAlert('info', `Signed out${previousEmail ? ' from ' + previousEmail : ''}. Ready for a new sign-in.`);
+    }
+  </script>
 </body>
 </html>

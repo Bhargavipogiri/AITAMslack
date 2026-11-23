@@ -1,0 +1,453 @@
+
+/* =====================================
+   MY PROFILE PAGE
+===================================== */
+
+.profile-page {
+    padding: 25px;
+    min-height: 100vh;
+    background-color: var(--background-color);
+}
+
+.profile-page .page-heading {
+    margin-bottom: 25px;
+}
+
+.profile-page .page-heading h2 {
+    color: var(--primary-color);
+    font-size: 25px;
+    font-weight: 700;
+    margin-bottom: 7px;
+}
+
+.profile-page .page-heading p {
+    color: #777;
+    font-size: 14px;
+    margin: 0;
+}
+
+/* PROFILE LAYOUT */
+
+.profile-page .profile-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+/* =====================================
+   PROFILE OVERVIEW
+===================================== */
+
+.profile-page .profile-overview {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.05);
+}
+
+.profile-page .profile-cover {
+    height: 135px;
+    background: linear-gradient(
+        120deg,
+        var(--primary-color),
+        var(--secondary-color)
+    );
+}
+
+.profile-page .profile-overview-content {
+    text-align: center;
+    padding: 0 20px 22px;
+    margin-top: -70px;
+}
+
+.profile-page .profile-image-container {
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 12px;
+    position: relative;
+}
+
+.profile-page .profile-image-container img {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 5px solid #fff;
+    background: #fff;
+}
+
+.profile-page .camera-icon {
+    position: absolute;
+    right: 5px;
+    bottom: 7px;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: var(--secondary-color);
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    border: 3px solid white;
+}
+
+.profile-page .camera-icon:hover {
+    background: var(--primary-color);
+}
+
+.profile-page .profile-overview-content h3 {
+    color: var(--primary-color);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.profile-page .profile-role {
+    color: var(--secondary-color);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.profile-page .profile-email {
+    color: #777;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.profile-page .profile-active {
+    display: inline-block;
+    background: #e1f5e9;
+    color: #218653;
+    padding: 7px 13px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.profile-page .profile-active i {
+    font-size: 8px;
+    margin-right: 5px;
+}
+
+.profile-page .profile-overview-footer {
+    border-top: 1px solid #eee;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.profile-page .profile-overview-footer div {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    color: #777;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.profile-page .profile-overview-footer i {
+    color: var(--secondary-color);
+}
+
+.profile-page .profile-overview-footer strong {
+    color: var(--primary-color);
+}
+
+/* =====================================
+   PROFILE CARDS
+===================================== */
+
+.profile-page .profile-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.04);
+}
+
+.profile-page .section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 25px;
+}
+
+.profile-page .section-heading h4 {
+    color: var(--primary-color);
+    font-size: 19px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.profile-page .section-heading p {
+    color: #888;
+    font-size: 13px;
+    margin: 0;
+}
+
+/* EDIT BUTTON */
+
+.profile-page .edit-btn {
+    border: 1px solid var(--secondary-color);
+    color: var(--secondary-color);
+    background: #fff;
+    padding: 9px 15px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.profile-page .edit-btn:hover {
+    background: var(--secondary-color);
+    color: #fff;
+}
+
+/* =====================================
+   PERSONAL INFORMATION
+===================================== */
+
+.profile-page .profile-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.profile-page .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.profile-page .form-group label {
+    color: var(--primary-color);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.profile-page .form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    outline: none;
+    background: #f8f9fa;
+    color: #444;
+    font-size: 13px;
+}
+
+.profile-page .form-group input:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 2px rgba(22,125,141,0.1);
+}
+
+.profile-page .form-group input:disabled {
+    cursor: not-allowed;
+    background: #f3f4f5;
+    color: #777;
+}
+
+/* PROFILE ACTIONS */
+
+.profile-page .profile-actions {
+    display: none;
+    gap: 12px;
+    margin-top: 25px;
+}
+
+.profile-page .profile-actions.show {
+    display: flex;
+}
+
+.profile-page .save-btn,
+.profile-page .cancel-btn {
+    padding: 11px 20px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.profile-page .save-btn {
+    background: var(--secondary-color);
+    color: #fff;
+    border: none;
+}
+
+.profile-page .save-btn:hover {
+    background: var(--primary-color);
+}
+
+.profile-page .cancel-btn {
+    background: #fff;
+    color: #666;
+    border: 1px solid #ddd;
+}
+
+/* =====================================
+   ACCOUNT INFORMATION
+===================================== */
+
+.profile-page .account-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+}
+
+.profile-page .account-info-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 15px;
+    background: #f8fafb;
+    border-radius: 9px;
+}
+
+.profile-page .account-info-item > i {
+    font-size: 23px;
+    color: var(--secondary-color);
+}
+
+.profile-page .account-info-item div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.profile-page .account-info-item span {
+    color: #888;
+    font-size: 12px;
+}
+
+.profile-page .account-info-item strong {
+    color: var(--primary-color);
+    font-size: 14px;
+}
+
+/* =====================================
+   PASSWORD SECTION
+===================================== */
+
+.profile-page .password-heading-icon {
+    font-size: 25px;
+    color: var(--secondary-color);
+}
+
+.profile-page .password-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.profile-page .password-input {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    background: #f8f9fa;
+    padding-right: 12px;
+}
+
+.profile-page .password-input input {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+.profile-page .password-input input:focus {
+    box-shadow: none;
+}
+
+.profile-page .password-toggle {
+    background: transparent;
+    border: none;
+    color: #777;
+    cursor: pointer;
+}
+
+.profile-page .change-password-btn {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 11px 18px;
+    border-radius: 7px;
+    margin-top: 22px;
+    font-size: 13px;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.profile-page .security-note {
+    color: #888;
+    font-size: 12px;
+    margin: 15px 0 0;
+}
+
+/* =====================================
+   MESSAGE
+===================================== */
+
+.profile-page .profile-message {
+    display: none;
+    margin-top: 15px;
+    padding: 12px 15px;
+    border-radius: 7px;
+    font-size: 13px;
+}
+
+.profile-page .profile-message.show {
+    display: block;
+}
+
+.profile-page .profile-message.success {
+    background: #e1f5e9;
+    color: #218653;
+}
+
+.profile-page .profile-message.error {
+    background: #fce5e5;
+    color: #c03939;
+}
+
+/* =====================================
+   RESPONSIVE DESIGN
+===================================== */
+
+@media (max-width: 768px) {
+
+    .profile-page {
+        padding: 15px;
+    }
+
+    .profile-page .profile-form-grid,
+    .profile-page .account-info-grid,
+    .profile-page .password-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-page .profile-card {
+        padding: 18px;
+    }
+
+    .profile-page .section-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+}
+
+@media (max-width: 480px) {
+
+    .profile-page .profile-actions {
+        flex-direction: column;
+    }
+
+    .profile-page .profile-actions button {
+        width: 100%;
+    }
+
+}

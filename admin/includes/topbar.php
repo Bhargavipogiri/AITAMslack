@@ -97,7 +97,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Admin Panel';
             <ul class="dropdown-menu dropdown-menu-end profile-menu">
 
                 <li>
-                    <a class="dropdown-item" href="profile.php">
+                    <a class="dropdown-item" href="my_profile.php">
                         <i class="bi bi-person-circle"></i>
                         My Profile
                     </a>

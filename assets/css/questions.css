@@ -1,0 +1,190 @@
+
+/* =================================
+   QUESTION MANAGEMENT PAGE
+================================= */
+
+.questions-page {
+    padding: 25px;
+    background-color: var(--background-color);
+}
+
+/* Page Heading */
+.questions-page .page-heading {
+    margin-bottom: 25px;
+}
+
+.questions-page .page-heading h2 {
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.questions-page .page-heading p {
+    color: #777;
+}
+
+/* Statistics Cards */
+.questions-page .question-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.questions-page .question-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+}
+
+.questions-page .question-card i {
+    font-size: 28px;
+    color: var(--secondary-color);
+    background: var(--light-color);
+    padding: 12px;
+    border-radius: 10px;
+}
+
+.questions-page .question-card p {
+    margin: 0;
+    color: #777;
+}
+
+.questions-page .question-card h3 {
+    margin: 5px 0 0;
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+/* Questions Panel */
+.questions-page .questions-panel {
+    background: white;
+    padding: 22px;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+}
+
+.questions-page .panel-heading h4 {
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+.questions-page .panel-heading p {
+    color: #777;
+}
+
+/* Search and Filters */
+.questions-page .question-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.questions-page .question-filters input,
+.questions-page .question-filters select {
+    padding: 9px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.questions-page .question-filters input {
+    flex: 1;
+    min-width: 200px;
+}
+
+.questions-page .question-filters button {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 18px;
+}
+
+.questions-page .question-filters a {
+    text-decoration: none;
+    color: var(--secondary-color);
+    padding: 9px;
+}
+
+/* Questions Table */
+.questions-page .questions-table th {
+    background: var(--primary-color);
+    color: white;
+    white-space: nowrap;
+}
+
+.questions-page .questions-table td {
+    vertical-align: middle;
+}
+
+/* Category */
+.questions-page .category-label {
+    background: var(--light-color);
+    color: var(--primary-color);
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+/* Question Status */
+.questions-page .question-status {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.questions-page .question-status.published {
+    background: #e1f5e8;
+    color: #23804b;
+}
+
+.questions-page .question-status.hidden {
+    background: #ffe5e2;
+    color: #bd4035;
+}
+
+/* Action Buttons */
+.questions-page .question-actions {
+    display: flex;
+    gap: 7px;
+}
+
+.questions-page .question-actions form {
+    margin: 0;
+}
+
+.questions-page .question-actions button {
+    border: 1px solid #ddd;
+    background: white;
+    color: var(--secondary-color);
+    padding: 6px 9px;
+    border-radius: 5px;
+}
+
+.questions-page .question-actions .hide-btn {
+    color: #c0392b;
+}
+
+.questions-page .question-actions .publish-btn {
+    color: #23804b;
+}
+
+.questions-page .question-actions button:hover {
+    background: var(--light-color);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+
+    .questions-page .question-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .questions-page {
+        padding: 12px;
+    }
+}
