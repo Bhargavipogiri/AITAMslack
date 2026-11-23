@@ -16,6 +16,10 @@ INSTALL
    includes/header.php
    includes/footer.php
 5. Confirm your header loads the shared root CSS tokens.
+6. Import database/migrations/2026_11_create_categories.sql into the aitamslack database
+   using phpMyAdmin or the MySQL command line. It creates categories and imports the
+   existing question category names, then adds Academics, Admissions, Placements, and
+   College Life. It adds General only when no categories exist.
 
 EXISTING INTEGRATION
 This page reuses the Phase 16 functions:
@@ -28,9 +32,10 @@ cc_phase16_question_can_persist()
 cc_phase16_log_submission_decision()
 cc_phase16_record_moderation()
 
-It reads categories(id, name) and inserts into the already-referenced questions fields:
-user_id, category_id, title, body, status, moderation_status.
-Moderation logging uses your existing helper/table. No new SQL tables or migration are added.
+It reads categories(id, name) and inserts into the existing questions fields:
+user_id, question_title, question_description, category, status, created_at.
+Moderation logging uses your existing helper/table. The categories migration above creates
+the lookup table and preserves category names already used by existing questions.
 
 FAIL-CLOSED
 A question is inserted only when both safety and quality checks complete and the existing

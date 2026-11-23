@@ -6,7 +6,7 @@
 .profile-page {
     padding: 25px;
     min-height: 100vh;
-    background-color: var(--background-color);
+    background: var(--bg-app);
 }
 
 .profile-page .page-heading {
@@ -14,19 +14,21 @@
 }
 
 .profile-page .page-heading h2 {
-    color: var(--primary-color);
+    color: var(--text-primary);
     font-size: 25px;
     font-weight: 700;
     margin-bottom: 7px;
 }
 
 .profile-page .page-heading p {
-    color: #777;
+    color: var(--text-secondary);
     font-size: 14px;
     margin: 0;
 }
 
-/* PROFILE LAYOUT */
+/* =====================================
+   PROFILE LAYOUT
+===================================== */
 
 .profile-page .profile-layout {
     display: flex;
@@ -39,41 +41,44 @@
 ===================================== */
 
 .profile-page .profile-overview {
-    background: #fff;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 .profile-page .profile-cover {
-    height: 135px;
-    background: linear-gradient(
-        120deg,
-        var(--primary-color),
-        var(--secondary-color)
-    );
+    height: 85px;
+    background: var(--gradient-brand);
 }
 
 .profile-page .profile-overview-content {
-    text-align: center;
-    padding: 0 20px 22px;
-    margin-top: -70px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    text-align: left;
+    padding: 0 35px 22px;
+    margin-top: -48px;
 }
 
+/* Profile Image */
+
 .profile-page .profile-image-container {
-    width: 140px;
-    height: 140px;
-    margin: 0 auto 12px;
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+    margin: 0;
     position: relative;
 }
 
 .profile-page .profile-image-container img {
-    width: 140px;
-    height: 140px;
+    width: 120px;
+    height: 120px;
     object-fit: cover;
     border-radius: 50%;
-    border: 5px solid #fff;
-    background: #fff;
+    border: 5px solid var(--bg-surface);
+    background: var(--bg-surface);
 }
 
 .profile-page .camera-icon {
@@ -83,43 +88,57 @@
     width: 35px;
     height: 35px;
     border-radius: 50%;
-    background: var(--secondary-color);
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--color-white);
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    border: 3px solid white;
+    border: 3px solid var(--bg-surface);
+    z-index: 2;
+    transition: var(--transition-fast);
 }
 
 .profile-page .camera-icon:hover {
-    background: var(--primary-color);
+    background: var(--color-primary-hover);
 }
 
-.profile-page .profile-overview-content h3 {
-    color: var(--primary-color);
+/* Profile Details */
+
+.profile-page .profile-details {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-top: 42px;
+    min-width: 0;
+}
+.profile-page .profile-details h3 {
+    color: var(--text-primary);
     font-size: 22px;
     font-weight: 700;
+    margin-top: 15px;
     margin-bottom: 5px;
 }
 
+
 .profile-page .profile-role {
-    color: var(--secondary-color);
+    color: var(--color-secondary);
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 5px;
 }
 
 .profile-page .profile-email {
-    color: #777;
+    color: var(--text-secondary);
     font-size: 14px;
     margin-bottom: 12px;
+    overflow-wrap: anywhere;
 }
 
 .profile-page .profile-active {
     display: inline-block;
-    background: #e1f5e9;
-    color: #218653;
+    background: rgba(22, 131, 93, 0.12);
+    color: var(--color-success);
     padding: 7px 13px;
     border-radius: 20px;
     font-size: 12px;
@@ -131,11 +150,13 @@
     margin-right: 5px;
 }
 
+/* Membership Footer */
+
 .profile-page .profile-overview-footer {
-    border-top: 1px solid #eee;
-    padding: 15px 20px;
+    border-top: 1px solid var(--border-default);
+    padding: 13px 35px;
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
 }
 
 .profile-page .profile-overview-footer div {
@@ -143,17 +164,17 @@
     align-items: center;
     gap: 9px;
     font-size: 13px;
-    color: #777;
+    color: var(--text-secondary);
     flex-wrap: wrap;
     justify-content: center;
 }
 
 .profile-page .profile-overview-footer i {
-    color: var(--secondary-color);
+    color: var(--color-secondary);
 }
 
 .profile-page .profile-overview-footer strong {
-    color: var(--primary-color);
+    color: var(--text-primary);
 }
 
 /* =====================================
@@ -161,10 +182,11 @@
 ===================================== */
 
 .profile-page .profile-card {
-    background: #fff;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
     border-radius: 12px;
     padding: 25px;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.04);
+    box-shadow: var(--shadow-sm);
 }
 
 .profile-page .section-heading {
@@ -176,35 +198,38 @@
 }
 
 .profile-page .section-heading h4 {
-    color: var(--primary-color);
+    color: var(--text-primary);
     font-size: 19px;
     font-weight: 700;
     margin-bottom: 5px;
 }
 
 .profile-page .section-heading p {
-    color: #888;
+    color: var(--text-secondary);
     font-size: 13px;
     margin: 0;
 }
 
-/* EDIT BUTTON */
+/* =====================================
+   EDIT BUTTON
+===================================== */
 
 .profile-page .edit-btn {
-    border: 1px solid var(--secondary-color);
-    color: var(--secondary-color);
-    background: #fff;
+    border: 1px solid var(--color-secondary);
+    color: var(--color-secondary);
+    background: var(--bg-surface);
     padding: 9px 15px;
     border-radius: 7px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
+    transition: var(--transition-fast);
 }
 
 .profile-page .edit-btn:hover {
-    background: var(--secondary-color);
-    color: #fff;
+    background: var(--color-secondary);
+    color: var(--color-white);
 }
 
 /* =====================================
@@ -224,7 +249,7 @@
 }
 
 .profile-page .form-group label {
-    color: var(--primary-color);
+    color: var(--text-primary);
     font-size: 13px;
     font-weight: 600;
 }
@@ -232,26 +257,27 @@
 .profile-page .form-group input {
     width: 100%;
     padding: 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-default);
     border-radius: 7px;
     outline: none;
-    background: #f8f9fa;
-    color: #444;
+    background: var(--bg-surface-muted);
+    color: var(--text-primary);
     font-size: 13px;
+    box-sizing: border-box;
 }
 
 .profile-page .form-group input:focus {
-    border-color: var(--secondary-color);
-    box-shadow: 0 0 0 2px rgba(22,125,141,0.1);
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .profile-page .form-group input:disabled {
     cursor: not-allowed;
-    background: #f3f4f5;
-    color: #777;
+    background: var(--bg-surface-muted);
+    color: var(--text-muted);
 }
 
-/* PROFILE ACTIONS */
+/* Profile Actions */
 
 .profile-page .profile-actions {
     display: none;
@@ -273,19 +299,19 @@
 }
 
 .profile-page .save-btn {
-    background: var(--secondary-color);
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--color-white);
     border: none;
 }
 
 .profile-page .save-btn:hover {
-    background: var(--primary-color);
+    background: var(--color-primary-hover);
 }
 
 .profile-page .cancel-btn {
-    background: #fff;
-    color: #666;
-    border: 1px solid #ddd;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
 }
 
 /* =====================================
@@ -303,13 +329,13 @@
     align-items: center;
     gap: 14px;
     padding: 15px;
-    background: #f8fafb;
+    background: var(--bg-surface-muted);
     border-radius: 9px;
 }
 
 .profile-page .account-info-item > i {
     font-size: 23px;
-    color: var(--secondary-color);
+    color: var(--color-secondary);
 }
 
 .profile-page .account-info-item div {
@@ -319,12 +345,12 @@
 }
 
 .profile-page .account-info-item span {
-    color: #888;
+    color: var(--text-muted);
     font-size: 12px;
 }
 
 .profile-page .account-info-item strong {
-    color: var(--primary-color);
+    color: var(--text-primary);
     font-size: 14px;
 }
 
@@ -334,7 +360,7 @@
 
 .profile-page .password-heading-icon {
     font-size: 25px;
-    color: var(--secondary-color);
+    color: var(--color-secondary);
 }
 
 .profile-page .password-grid {
@@ -346,9 +372,9 @@
 .profile-page .password-input {
     display: flex;
     align-items: center;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-default);
     border-radius: 7px;
-    background: #f8f9fa;
+    background: var(--bg-surface-muted);
     padding-right: 12px;
 }
 
@@ -365,24 +391,28 @@
 .profile-page .password-toggle {
     background: transparent;
     border: none;
-    color: #777;
+    color: var(--text-secondary);
     cursor: pointer;
 }
 
 .profile-page .change-password-btn {
-    background: var(--secondary-color);
-    color: white;
+    background: var(--color-primary);
+    color: var(--color-white);
     border: none;
     padding: 11px 18px;
     border-radius: 7px;
     margin-top: 22px;
     font-size: 13px;
-    cursor: not-allowed;
-    opacity: 0.6;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.profile-page .change-password-btn:hover {
+    background: var(--color-primary-hover);
 }
 
 .profile-page .security-note {
-    color: #888;
+    color: var(--text-muted);
     font-size: 12px;
     margin: 15px 0 0;
 }
@@ -404,13 +434,13 @@
 }
 
 .profile-page .profile-message.success {
-    background: #e1f5e9;
-    color: #218653;
+    background: rgba(22, 131, 93, 0.12);
+    color: var(--color-success);
 }
 
 .profile-page .profile-message.error {
-    background: #fce5e5;
-    color: #c03939;
+    background: rgba(194, 65, 75, 0.12);
+    color: var(--color-danger);
 }
 
 /* =====================================
@@ -436,6 +466,29 @@
     .profile-page .section-heading {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+}
+
+@media (max-width: 576px) {
+
+    .profile-page .profile-overview-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 12px;
+        padding: 0 18px 20px;
+        margin-top: -48px;
+    }
+
+    .profile-page .profile-details {
+        align-items: center;
+        padding-top: 0;
+    }
+
+    .profile-page .profile-overview-footer {
+        justify-content: center;
+        padding: 13px;
     }
 
 }
