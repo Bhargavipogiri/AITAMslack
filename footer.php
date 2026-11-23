@@ -6,19 +6,20 @@
         <!-- Brand Section -->
         <div class="footer-brand">
 
-            <div class="footer-logo-box">
-                <img src="./assets/images/logo.png"
-                     alt="AITAM College Logo"
-                     class="footer-logo">
-            </div>
+            <a href="index.php" class="footer-brand-link">
+                <div class="footer-logo-box">
+                    <img src="assets/images/logo.png"
+                         alt="AITAM College Logo"
+                         width="44"
+                         height="44"
+                         class="footer-logo">
+                </div>
 
-            <div class="footer-brand-text">
-                <h2>AITAM <span>SLACK</span></h2>
-                <p>College Communication Platform</p>
-                <p class="footer-tagline">
-                    Connect. Communicate. Collaborate.
-                </p>
-            </div>
+                <div class="footer-brand-text">
+                    <h2>AITAM SLACK</h2>
+                    <span>AITAM COMMUNITY</span>
+                </div>
+            </a>
 
         </div>
 
@@ -81,8 +82,7 @@
 
     </div>
 
-    <!-- Divider -->
-    <div class="footer-divider"></div>
+
 
     <!-- Bottom Section -->
     <div class="footer-bottom">
@@ -91,9 +91,18 @@
             &copy; <?php echo date("Y"); ?> AITAM SLACK
         </p>
 
-        <p>
-            Developed By <strong>© CSM dep</strong>
-        </p>
+        <details class="footer-developer">
+            <summary>Developed By <strong>CSM Dept</strong></summary>
+            <ul class="footer-student-menu" aria-label="Student developers">
+                <li>YAJNESWARARAO</li>
+                <li>PURNACHNADRARAO</li>
+                <li>LOKESH</li>
+                <li>BHARGAVI</li>
+                <li>LEKHANAPRIYA</li>
+                <li>JAHNAVI</li>
+                <li>POOJITHA</li>
+            </ul>
+        </details>
 
         <p>
             Built for a more connected campus.
@@ -132,50 +141,63 @@
 /* Brand Section */
 .footer-brand {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
 }
 
+.footer-brand-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    text-decoration: none;
+    transition: var(--transition-fast);
+}
+
+.main-footer .footer-brand-link:hover,
+.main-footer .footer-brand-link:focus-visible {
+    transform: none;
+}
+
 .footer-logo-box {
-    width: 60px;
-    height: 60px;
-    min-width: 60px;
-    background: var(--bg-surface);
-    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    flex: 0 0 56px;
+    display: grid;
+    place-items: center;
     padding: 5px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 50%;
+    background: var(--color-white);
     box-sizing: border-box;
 }
 
 .footer-logo {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
-    border-radius: 50%;
+    object-position: center;
 }
 
 .footer-brand-text h2 {
     color: var(--text-on-brand);
-    font-size: 21px;
-    margin: 0 0 7px;
+    margin: 0;
+    font-size: 18px;
     font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: normal;
+    text-transform: none;
 }
 
-.footer-brand-text h2 span {
+.footer-brand-text span {
     color: var(--color-accent);
-}
-
-.footer-brand-text p {
-    color: var(--text-on-brand);
-    font-size: 13px;
-    line-height: 1.6;
-    margin: 5px 0;
-}
-
-.footer-brand-text .footer-tagline {
-    color: var(--color-accent);
-    font-weight: 600;
-    font-style: italic;
-    margin-top: 12px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    line-height: 1.2;
+    text-transform: none;
 }
 
 /* Footer Headings */
@@ -200,14 +222,14 @@
 .footer-links-columns {
     display: grid;
     grid-template-columns: max-content max-content;
-    column-gap: 24px;
+    column-gap: 34px;
     align-items: start;
 }
 
 .footer-links-column {
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: 3px;
 }
 
 .footer-links a {
@@ -225,16 +247,11 @@
 }
 
 .footer-links a:hover {
-    color: var(--color-navy-950);
-    background: var(--color-accent);
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 3px;
+    color: var(--color-accent);
 }
 
 .footer-links a:focus-visible {
-    color: var(--color-navy-950);
-    background: var(--color-accent);
+    color: var(--color-accent);
     outline: 2px solid var(--text-on-brand);
     outline-offset: 2px;
 }
@@ -274,12 +291,8 @@
     color: var(--color-accent);
 }
 
-/* Divider */
-.footer-divider {
-    max-width: 1300px;
-    margin: 0 auto 16px;
-    height: 1px;
-    background: var(--border-strong);
+.main-footer a:hover {
+    transform: translateY(-2px);
 }
 
 /* Bottom Footer */
@@ -301,6 +314,72 @@
 
 .footer-bottom strong {
     color: var(--text-on-brand);
+}
+
+.footer-developer {
+    position: relative;
+    display: inline-block;
+    margin: 5px 0;
+    color: var(--color-accent);
+    font-size: 12px;
+}
+
+.footer-developer summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.footer-developer summary::-webkit-details-marker {
+    display: none;
+}
+
+.footer-developer summary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
+}
+
+.footer-student-menu {
+    position: absolute;
+    z-index: 5;
+    left: 50%;
+    bottom: calc(100% + 10px);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 6px;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    margin: 0;
+    padding: 8px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-md);
+    list-style: none;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(6px);
+    transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
+}
+
+.footer-student-menu li {
+    padding: 5px 7px;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.footer-developer:hover .footer-student-menu,
+.footer-developer:focus-within .footer-student-menu,
+.footer-developer[open] .footer-student-menu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+    transition: opacity 160ms ease, transform 160ms ease, visibility 0s;
 }
 
 /* Tablet Responsive */
@@ -355,6 +434,14 @@
 
     .footer-links a {
         font-size: 12px;
+    }
+
+    .footer-brand-text h2 {
+        font-size: 15px;
+    }
+
+    .footer-brand-text span {
+        font-size: 8px;
     }
 
 }
