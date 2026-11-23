@@ -65,7 +65,8 @@ try {
             $_SESSION['full_name'],
             $_SESSION['email'],
             $_SESSION['department'],
-            $_SESSION['role']
+            $_SESSION['role'],
+            $_SESSION['profile_image']
         );
         $_SESSION['admin_id'] = (int)$admin['id'];
         $_SESSION['admin_name'] = $admin['name'];
@@ -75,12 +76,12 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare(
-        'SELECT user_id, full_name, email, department, role, password_hash, status
-         FROM users
-         WHERE email = :email
-         LIMIT 1'
-    );
+    $stmt = $pdo->prepare('
+        SELECT user_id, full_name, email, department, role, profile_image, password_hash, status
+        FROM users
+        WHERE email = :email
+        LIMIT 1
+    ');
     $stmt->execute([':email' => $email]);
     $user = $stmt->fetch();
 
@@ -114,6 +115,7 @@ try {
     $_SESSION['email']      = $user['email'];
     $_SESSION['department'] = $user['department'];
     $_SESSION['role']       = $user['role'];
+    $_SESSION['profile_image'] = $user['profile_image'] ?? '';
 
     header('Location: ../index.php');
     exit;

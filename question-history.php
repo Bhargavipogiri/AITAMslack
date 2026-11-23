@@ -1,5 +1,6 @@
-
 <?php
+session_start();
+
 require_once 'lesder-db.php';
 
 // Fetch question history without requiring a login.
