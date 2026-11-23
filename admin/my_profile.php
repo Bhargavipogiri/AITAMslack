@@ -1,6 +1,100 @@
 
 <?php
-session_start();
+require_once __DIR__ . '/includes/auth.php';
+require_admin();
+
+$profileMessage = '';
+$profileMessageType = 'success';
+
+$stmt = $pdo->prepare(
+    'SELECT id, name, email, status, created_at
+     FROM admin_users
+     WHERE id = :id
+     LIMIT 1'
+);
+$stmt->execute(['id' => (int)$_SESSION['admin_id']]);
+$admin = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$admin) {
+    session_unset();
+    session_destroy();
+    header('Location: login.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!admin_csrf_verify($_POST['csrf_token'] ?? null)) {
+        $profileMessage = 'Invalid security token. Please try again.';
+        $profileMessageType = 'danger';
+    } else {
+        $action = $_POST['action'] ?? '';
+
+        try {
+            if ($action === 'update_profile') {
+                $name = trim((string)($_POST['name'] ?? ''));
+                $email = trim((string)($_POST['email'] ?? ''));
+
+                if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    throw new InvalidArgumentException('A name and valid email address are required.');
+                }
+
+                $update = $pdo->prepare(
+                    'UPDATE admin_users SET name = :name, email = :email WHERE id = :id'
+                );
+                $update->execute([
+                    'name' => $name,
+                    'email' => $email,
+                    'id' => (int)$admin['id']
+                ]);
+
+                $_SESSION['admin_name'] = $name;
+                $_SESSION['admin_email'] = $email;
+                $admin['name'] = $name;
+                $admin['email'] = $email;
+                $profileMessage = 'Profile updated successfully.';
+            } elseif ($action === 'change_password') {
+                $currentPassword = (string)($_POST['current_password'] ?? '');
+                $newPassword = (string)($_POST['new_password'] ?? '');
+                $confirmPassword = (string)($_POST['confirm_password'] ?? '');
+
+                if ($newPassword !== $confirmPassword) {
+                    throw new InvalidArgumentException('New password and confirmation do not match.');
+                }
+                if (strlen($newPassword) < 8) {
+                    throw new InvalidArgumentException('New password must be at least 8 characters.');
+                }
+
+                $passwordStmt = $pdo->prepare('SELECT password FROM admin_users WHERE id = :id');
+                $passwordStmt->execute(['id' => (int)$admin['id']]);
+                $passwordHash = $passwordStmt->fetchColumn();
+
+                if (!password_verify($currentPassword, $passwordHash)) {
+                    throw new InvalidArgumentException('Current password is incorrect.');
+                }
+
+                $updatePassword = $pdo->prepare(
+                    'UPDATE admin_users SET password = :password WHERE id = :id'
+                );
+                $updatePassword->execute([
+                    'password' => password_hash($newPassword, PASSWORD_DEFAULT),
+                    'id' => (int)$admin['id']
+                ]);
+                $profileMessage = 'Password changed successfully.';
+            }
+        } catch (InvalidArgumentException $exception) {
+            $profileMessage = $exception->getMessage();
+            $profileMessageType = 'danger';
+        } catch (PDOException $exception) {
+            $profileMessage = 'Unable to save account changes.';
+            $profileMessageType = 'danger';
+        }
+    }
+}
+
+function e($value)
+{
+    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
+}
 ?>
 
 <!DOCTYPE html>
@@ -74,20 +168,18 @@ session_start();
 
                         </div>
 
-                        <h3 id="profileName">Admin Name</h3>
+                        <h3 id="profileName"><?= e($admin['name']) ?></h3>
 
                         <p class="profile-role">
                             <i class="bi bi-shield-check"></i>
                             Administrator
                         </p>
 
-                        <p class="profile-email" id="profileEmail">
-                            admin@aitam.edu
-                        </p>
+                        <p class="profile-email" id="profileEmail"><?= e($admin['email']) ?></p>
 
                         <span class="profile-active">
                             <i class="bi bi-circle-fill"></i>
-                            Active Account
+                            <?= e(ucfirst($admin['status'])) ?> Account
                         </span>
 
                     </div>
@@ -96,7 +188,7 @@ session_start();
                         <div>
                             <i class="bi bi-calendar-check"></i>
                             <span>Member Since</span>
-                            <strong>Not available</strong>
+                            <strong><?= e(date('d F Y', strtotime($admin['created_at']))) ?></strong>
                         </div>
                     </div>
 
@@ -112,16 +204,17 @@ session_start();
                             <p>Manage your personal details.</p>
                         </div>
 
-                        <button type="button"
-                                class="edit-btn"
-                                id="editProfileBtn">
-                            <i class="bi bi-pencil-square"></i>
-                            Edit Profile
-                        </button>
-
                     </div>
 
-                    <form id="profileForm">
+                    <?php if ($profileMessage !== ''): ?>
+                        <div class="alert alert-<?= e($profileMessageType) ?>" role="alert">
+                            <?= e($profileMessage) ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <form id="profileForm" method="post" action="my_profile.php">
+                        <input type="hidden" name="csrf_token" value="<?= e(admin_csrf_token()) ?>">
+                        <input type="hidden" name="action" value="update_profile">
 
                         <div class="profile-form-grid">
 
@@ -129,8 +222,8 @@ session_start();
                                 <label for="fullName">Full Name</label>
                                 <input type="text"
                                        id="fullName"
-                                       value="Admin Name"
-                                       disabled
+                                       name="name"
+                                       value="<?= e($admin['name']) ?>"
                                        required>
                             </div>
 
@@ -138,45 +231,11 @@ session_start();
                                 <label for="email">Email Address</label>
                                 <input type="email"
                                        id="email"
-                                       value="admin@aitam.edu"
-                                       disabled
+                                       name="email"
+                                       value="<?= e($admin['email']) ?>"
                                        required>
                             </div>
 
-                            <div class="form-group">
-                                <label for="department">Department</label>
-                                <input type="text"
-                                       id="department"
-                                       value="Administration"
-                                       disabled>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="phone">Phone Number</label>
-                                <input type="tel"
-                                       id="phone"
-                                       value=""
-                                       placeholder="Enter phone number"
-                                       pattern="[0-9]{10}"
-                                       maxlength="10"
-                                       disabled>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="role">Account Role</label>
-                                <input type="text"
-                                       id="role"
-                                       value="Administrator"
-                                       disabled>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="accountStatus">Account Status</label>
-                                <input type="text"
-                                       id="accountStatus"
-                                       value="Active"
-                                       disabled>
-                            </div>
 
                         </div>
 
@@ -223,7 +282,7 @@ session_start();
                             <i class="bi bi-patch-check"></i>
                             <div>
                                 <span>Verification</span>
-                                <strong>Not available</strong>
+                                <strong><?= e(ucfirst($admin['status'])) ?></strong>
                             </div>
                         </div>
 
@@ -231,7 +290,7 @@ session_start();
                             <i class="bi bi-calendar3"></i>
                             <div>
                                 <span>Registration Date</span>
-                                <strong>Not available</strong>
+                                <strong><?= e(date('d F Y', strtotime($admin['created_at']))) ?></strong>
                             </div>
                         </div>
 
@@ -239,7 +298,7 @@ session_start();
                             <i class="bi bi-shield-lock"></i>
                             <div>
                                 <span>Account Security</span>
-                                <strong>Login not configured</strong>
+                                <strong>Password protected</strong>
                             </div>
                         </div>
 
@@ -259,7 +318,9 @@ session_start();
                         <i class="bi bi-lock password-heading-icon"></i>
                     </div>
 
-                    <form id="passwordForm">
+                    <form id="passwordForm" method="post" action="my_profile.php">
+                        <input type="hidden" name="csrf_token" value="<?= e(admin_csrf_token()) ?>">
+                        <input type="hidden" name="action" value="change_password">
 
                         <div class="password-grid">
 
@@ -271,8 +332,9 @@ session_start();
                                 <div class="password-input">
                                     <input type="password"
                                            id="currentPassword"
+                                           name="current_password"
                                            placeholder="Enter current password"
-                                           disabled>
+                                           required>
 
                                     <button type="button"
                                             class="password-toggle"
@@ -291,9 +353,10 @@ session_start();
                                 <div class="password-input">
                                     <input type="password"
                                            id="newPassword"
+                                           name="new_password"
                                            placeholder="Enter new password"
                                            minlength="8"
-                                           disabled>
+                                           required>
 
                                     <button type="button"
                                             class="password-toggle"
@@ -312,9 +375,10 @@ session_start();
                                 <div class="password-input">
                                     <input type="password"
                                            id="confirmPassword"
+                                           name="confirm_password"
                                            placeholder="Confirm new password"
                                            minlength="8"
-                                           disabled>
+                                           required>
 
                                     <button type="button"
                                             class="password-toggle"
@@ -329,8 +393,7 @@ session_start();
 
                         <button type="submit"
                                 class="change-password-btn"
-                                id="changePasswordBtn"
-                                disabled>
+                                id="changePasswordBtn">
                             <i class="bi bi-shield-lock"></i>
                             Change Password
                         </button>
@@ -339,8 +402,7 @@ session_start();
 
                     <p class="security-note">
                         <i class="bi bi-info-circle"></i>
-                        Password updates will be enabled after Admin Login
-                        and authentication are implemented.
+                        Use a strong password of at least 8 characters.
                     </p>
 
                 </section>
@@ -360,7 +422,6 @@ session_start();
 
     <!-- Project JS -->
     <script src="../assets/js/admin.js"></script>
-    <script src="../assets/js/my_profile.js"></script>
 
 </body>
 </html>

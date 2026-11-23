@@ -1,6 +1,7 @@
 
 <?php
-session_start();
+require_once __DIR__ . '/includes/auth.php';
+require_admin();
 
 require_once 'includes/db.php';
 
@@ -50,6 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
 $search = trim($_GET['search'] ?? '');
 $category = trim($_GET['category'] ?? '');
 $status = trim($_GET['status'] ?? '');
+$page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT);
+$page = $page && $page > 0 ? $page : 1;
+$perPage = 20;
 
 $allowedStatuses = ['Pending', 'Answered', 'Closed'];
 
@@ -88,8 +92,11 @@ $sql = "SELECT
             q.question_description,
             q.category,
             q.status,
-            q.created_at
+            q.created_at,
+            u.name AS author_name,
+            u.email AS author_email
         FROM questions q
+        LEFT JOIN users u ON u.id = q.user_id
         WHERE 1=1";
 
 $params = [];
@@ -114,7 +121,29 @@ if (in_array($status, $allowedStatuses, true)) {
     $params[':status'] = $status;
 }
 
+$countSql = "SELECT COUNT(*) FROM questions q WHERE 1=1";
+$countParams = [];
+if ($search !== '') {
+    $countSql .= " AND (q.question_title LIKE :search1 OR q.question_description LIKE :search2)";
+    $countParams[':search1'] = "%$search%";
+    $countParams[':search2'] = "%$search%";
+}
+if ($category !== '') {
+    $countSql .= " AND q.category = :category";
+    $countParams[':category'] = $category;
+}
+if (in_array($status, $allowedStatuses, true)) {
+    $countSql .= " AND q.status = :status";
+    $countParams[':status'] = $status;
+}
+$countStmt = $pdo->prepare($countSql);
+$countStmt->execute($countParams);
+$totalFilteredQuestions = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalFilteredQuestions / $perPage));
+$page = min($page, $totalPages);
+
 $sql .= " ORDER BY q.created_at DESC";
+$sql .= " LIMIT " . $perPage . " OFFSET " . (($page - 1) * $perPage);
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);

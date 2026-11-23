@@ -86,7 +86,7 @@ $pageTitle = $pageTitles[$currentPage] ?? 'Admin Panel';
                 </div>
 
                 <div class="admin-info">
-                    <strong>Admin</strong>
+                    <strong><?= htmlspecialchars($_SESSION['admin_name'] ?? 'Administrator', ENT_QUOTES, 'UTF-8') ?></strong>
                     <span>Administrator</span>
                 </div>
 

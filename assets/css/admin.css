@@ -1039,3 +1039,11 @@ body.sidebar-collapsed .main-content {
         white-space: nowrap;
     }
 }
+
+
+.sidebar a,
+.sidebar a:hover,
+.sidebar a:focus,
+.sidebar a:active {
+    text-decoration: none;
+}
