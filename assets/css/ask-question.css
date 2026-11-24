@@ -5,7 +5,7 @@
   --ask-sky: var(--color-blue-500, #4988C4);
   --ask-cyan: var(--color-cyan-100, #BDE8F5);
   color: var(--text-primary, #172B45);
-  max-width: 1240px; margin: 0 auto; padding: 32px 26px 60px;
+  max-width: 1100px; margin: 40px auto; padding: 20px;
 }
 .cc-ask-hero {
   display:flex; align-items:center; justify-content:space-between; gap:24px;
@@ -34,6 +34,15 @@
   font:inherit; font-size:13px; outline:none; transition:border-color .16s,box-shadow .16s;
 }
 .cc-field input,.cc-field select { min-height:48px; padding:0 13px; }
+.cc-field select {
+  -webkit-appearance:none;
+  appearance:none;
+  padding-right:42px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%237B8DA2' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 22px center;
+  background-size:12px 8px;
+}
 .cc-field textarea { min-height:220px; padding:14px; resize:vertical; line-height:1.7; border:0; border-radius:0; }
 .cc-field input:focus,.cc-field select:focus,.cc-editor:focus-within { border-color:var(--ask-sky); box-shadow:0 0 0 4px #4988C422; }
 .cc-field input::placeholder,.cc-field textarea::placeholder { color:var(--text-muted,#8494A7); }
@@ -73,5 +82,5 @@
 .cc-alert ul { margin:7px 0 0; padding-left:18px; line-height:1.6; }
 [data-theme="dark"] .cc-alert { color:#FFB4BA; }
 @media(max-width:900px) { .cc-ask-layout { grid-template-columns:minmax(0,1fr) 260px; } .cc-ask-card { padding:24px; } }
-@media(max-width:720px) { .cc-ask-page { padding:20px 14px 40px; } .cc-ask-hero { min-height:150px; padding:26px 22px; } .cc-hero-mark { flex-basis:68px; height:68px; font-size:42px; } .cc-ask-layout { grid-template-columns:1fr; } }
+@media(max-width:720px) { .cc-ask-page { margin:20px auto; padding:20px 14px 40px; } .cc-ask-hero { min-height:150px; padding:26px 22px; } .cc-hero-mark { flex-basis:68px; height:68px; font-size:42px; } .cc-ask-layout { grid-template-columns:1fr; } }
 @media(max-width:480px) { .cc-hero-mark { display:none; } .cc-ask-card { padding:19px 15px; } .cc-card-heading { flex-direction:column; } .cc-label-row { display:block; } .cc-label-row small { margin:0 0 8px; } .cc-form-actions { justify-content:space-between; } .cc-submit-note { text-align:left; } }

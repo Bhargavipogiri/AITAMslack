@@ -1,4 +1,3 @@
-
 <?php
 /**
  * College Connect - OpenAI Moderation

@@ -1,4 +1,6 @@
-
+<?php
+session_start();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1471,7 +1473,7 @@ img {
       <div class="floating-card floating-two">
         <div class="floating-icon">✦</div>
         <div>
-          <strong>AI Campus Assistant</strong>
+          <strong>College Connect</strong>
           <small>Find answers faster</small>
         </div>
       </div>
@@ -1893,7 +1895,7 @@ img {
   </div>
 </section>
 
-
+ 
 <!-- ==============================
      CALL TO ACTION
 ================================= -->

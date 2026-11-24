@@ -368,19 +368,31 @@ a {
 }
 
 .admin-avatar {
-    width: 38px;
-    height: 38px;
-
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
     border-radius: 50%;
-    background: var(--color-blue-500);
-    color: var(--color-white);
-
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-
-    font-size: 19px;
+    background: var(--color-blue-500);
+    flex-shrink: 0;
 }
+
+.admin-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 50%;
+    display: block;
+}
+
+/*.admin-avatar i {
+    font-size: 22px;
+}*/
 
 .admin-info {
     display: flex;
