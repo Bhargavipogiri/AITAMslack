@@ -10,7 +10,8 @@ $pageTitles = [
     'reported-answers.php' => 'Reported Answers',
     'announcements.php' => 'Announcements Management',
     'settings.php' => 'Settings',
-    'my_profile.php' => 'My Profile'
+    'my_profile.php' => 'My Profile',
+    'events.php' => 'Event Management'
 ];
 
 $currentPage = basename($_SERVER['PHP_SELF']);
