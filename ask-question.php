@@ -300,7 +300,7 @@ require __DIR__ . '/includes/header.php';
                         id="questionTitle"
                         name="title"
                         type="text"
-                        minlength="15"
+                        minlength="10"
                         maxlength="220"
                         value="<?= e($old['title']) ?>"
                         placeholder="e.g. How can I prepare for the campus placement coding round?"
@@ -380,7 +380,7 @@ require __DIR__ . '/includes/header.php';
                             id="questionBody"
                             name="body"
                             rows="10"
-                            minlength="30"
+                            minlength="15"
                             maxlength="10000"
                             placeholder="Explain your question in detail...
 

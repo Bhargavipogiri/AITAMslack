@@ -91,7 +91,7 @@ try {
 
     // Normal user login
     $stmt = $pdo->prepare(
-        'SELECT user_id, full_name, email, department, role, profile_image, password_hash, status
+        'SELECT user_id, full_name, email, department, role, password_hash, status
          FROM users
          WHERE email = :email
          LIMIT 1'
