@@ -239,7 +239,8 @@
     white-space: nowrap;
 }
 
-.answers-page .status-badge.published {
+.answers-page .status-badge.published,
+.answers-page .status-badge.approved {
     background: #dff5e9;
     color: #218653;
 }
@@ -249,7 +250,8 @@
     color: #c17b12;
 }
 
-.answers-page .status-badge.hidden {
+.answers-page .status-badge.hidden,
+.answers-page .status-badge.rejected {
     background: #fce5e5;
     color: #c03939;
 }
@@ -260,6 +262,9 @@
 
 .answers-page .status-form {
     min-width: 110px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .answers-page .status-form select {

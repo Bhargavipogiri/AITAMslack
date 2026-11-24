@@ -4,8 +4,14 @@
 require_once __DIR__ . '/includes/bootstrap.php';
 
 $questions = [];
+$publicQuestionCount = 0;
 $databaseError = '';
 $successMessage = '';
+$currentUserId = filter_var(
+    $_SESSION['user_id'] ?? null,
+    FILTER_VALIDATE_INT,
+    ['options' => ['min_range' => 1]]
+);
 
 /* =====================================
    SUCCESS MESSAGE
@@ -30,6 +36,7 @@ try {
             q.question_description,
             q.category,
             q.status,
+            q.publication_status,
             q.created_at,
 
             COALESCE(
@@ -42,15 +49,35 @@ try {
         LEFT JOIN users u
             ON u.user_id = q.user_id
 
+    ";
+
+    $params = [];
+
+    if ($currentUserId !== false) {
+        $sql .= "
+            WHERE q.publication_status = 'APPROVED'
+                OR q.user_id = :viewer_id
+        ";
+        $params['viewer_id'] = $currentUserId;
+    } else {
+        $sql .= " WHERE q.publication_status = 'APPROVED' ";
+    }
+
+    $sql .= "
         ORDER BY
             q.created_at DESC,
             q.id DESC
     ";
 
     $stmt = db()->prepare($sql);
-    $stmt->execute();
+    $stmt->execute($params);
 
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $countStmt = db()->query(
+        "SELECT COUNT(*) FROM questions WHERE publication_status = 'APPROVED'"
+    );
+    $publicQuestionCount = (int)$countStmt->fetchColumn();
 
 } catch (PDOException $error) {
 
@@ -247,6 +274,13 @@ body[data-theme="dark"] .question-card {
     gap: 18px;
 }
 
+.status-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .question-card h3 {
 
     margin: 0 0 12px;
@@ -315,9 +349,30 @@ body[data-theme="dark"] .question-card {
     white-space: nowrap;
 }
 
+.publication-status {
+    display: inline-block;
+    padding: 7px 13px;
+    border-radius: 20px;
+    background: #d4edda;
+    color: #155724;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
 .pending {
     background: #fff3cd;
     color: #856404;
+}
+
+.pending-review {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.rejected-review {
+    background: #f8d7da;
+    color: #842029;
 }
 
 .answered {
@@ -497,6 +552,10 @@ body[data-theme="dark"] .question-card {
         gap: 12px;
     }
 
+    .status-row {
+        justify-content: flex-start;
+    }
+
     .question-card h3 {
         font-size: 18px;
     }
@@ -559,9 +618,7 @@ body[data-theme="dark"] .question-card {
 
     <!-- TOTAL QUESTIONS -->
     <div class="history-count">
-
-        Total Questions: <?= count($questions) ?>
-
+        Public Questions: <?= e((string)$publicQuestionCount) ?>
     </div>
 
     <!-- QUESTION LIST -->
@@ -573,9 +630,19 @@ body[data-theme="dark"] .question-card {
 
                 <?php
 
-                $statusClass = strtolower(
-                    trim((string)($question['status'] ?? ''))
+                $publicationStatus = strtoupper(
+                    (string)($question['publication_status'] ?? '')
                 );
+                $isPublished = $publicationStatus === 'APPROVED';
+                $isPendingReview = $publicationStatus === 'PENDING';
+                $displayStatus = $isPublished
+                    ? (string)($question['status'] ?? '')
+                    : ($isPendingReview ? 'Pending review' : 'Not published');
+                $statusClass = $isPendingReview
+                    ? 'pending-review'
+                    : ($isPublished
+                        ? strtolower(trim($displayStatus))
+                        : 'rejected-review');
 
                 $createdAt = strtotime(
                     (string)($question['created_at'] ?? '')
@@ -592,9 +659,14 @@ body[data-theme="dark"] .question-card {
                             <?= e($question['question_title']) ?>
                         </h3>
 
-                        <span class="status <?= e($statusClass) ?>">
-                            <?= e($question['status']) ?>
-                        </span>
+                        <div class="status-row">
+                            <span class="status <?= e($statusClass) ?>">
+                                <?= e($displayStatus) ?>
+                            </span>
+                            <?php if ($isPublished): ?>
+                                <span class="publication-status">Published</span>
+                            <?php endif; ?>
+                        </div>
 
                     </div>
 
@@ -636,12 +708,28 @@ body[data-theme="dark"] .question-card {
                     <!-- ANSWER BUTTON -->
                     <div class="question-actions">
 
-                        <a
-                            href="answer.php?question_id=<?= urlencode((string)$question['id']) ?>"
-                            class="answer-btn"
-                        >
-                            Answer →
-                        </a>
+                        <?php if ($isPublished): ?>
+
+                            <a
+                                href="answer.php?question_id=<?= urlencode((string)$question['id']) ?>"
+                                class="answer-btn"
+                            >
+                                Answer →
+                            </a>
+
+                        <?php elseif ($isPendingReview): ?>
+
+                            <span class="question-meta">
+                                This question is visible only to you while it awaits review.
+                            </span>
+
+                        <?php else: ?>
+
+                            <span class="question-meta">
+                                This submission was not published. Contact an administrator if you need more information.
+                            </span>
+
+                        <?php endif; ?>
 
                     </div>
 
@@ -657,7 +745,7 @@ body[data-theme="dark"] .question-card {
                 <h3>No Questions Found</h3>
 
                 <p>
-                    No questions have been submitted yet.
+                    No public questions or personal submissions were found.
                 </p>
 
             </div>

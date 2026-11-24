@@ -20,7 +20,7 @@ require_once __DIR__ . '/config/db.php';
 
 try {
     $userStmt = $pdo->prepare(
-        'SELECT full_name, email, department, role, profile_image, points
+        'SELECT full_name, email, department, role, points
          FROM users
          WHERE user_id = :user_id
          LIMIT 1'
@@ -57,10 +57,11 @@ $formatActivityDate = static function ($value): string {
 $defaultQuestions = [];
 try {
     $questionsStmt = $pdo->prepare(
-        'SELECT id, question_title, question_description, category, created_at
+        "SELECT id, question_title, question_description, category, created_at
          FROM questions
          WHERE user_id = :user_id
-         ORDER BY created_at DESC'
+           AND publication_status = 'APPROVED'
+         ORDER BY created_at DESC"
     );
     $questionsStmt->execute([':user_id' => $userId]);
 
@@ -80,12 +81,13 @@ try {
 } catch (PDOException $exception) {
     try {
         $questionsStmt = $pdo->prepare(
-            'SELECT q.id, q.title AS question_title, q.body AS question_description,
+            "SELECT q.id, q.title AS question_title, q.body AS question_description,
                     c.name AS category, q.created_at
              FROM questions q
              LEFT JOIN categories c ON c.id = q.category_id
              WHERE q.user_id = :user_id
-             ORDER BY q.created_at DESC'
+               AND q.publication_status = 'APPROVED'
+             ORDER BY q.created_at DESC"
         );
         $questionsStmt->execute([':user_id' => $userId]);
 
@@ -114,13 +116,13 @@ try {
 
 try {
     $answersStmt = $pdo->prepare(
-        'SELECT a.id, a.answer_text, a.created_at,
+        "SELECT a.id, a.answer_text, a.publication_status, a.created_at,
                 q.id AS question_id, q.question_title,
                 q.question_description, q.category
          FROM answers a
          INNER JOIN questions q ON q.id = a.question_id
          WHERE a.user_id = :user_id
-         ORDER BY a.created_at DESC'
+         ORDER BY a.created_at DESC"
     );
     $answersStmt->execute([':user_id' => $userId]);
 
@@ -132,6 +134,7 @@ try {
             'description' => (string)($answer['question_description'] ?? ''),
             'answer' => (string)($answer['answer_text'] ?? ''),
             'category' => (string)($answer['category'] ?? ''),
+            'publication_status' => strtoupper((string)($answer['publication_status'] ?? 'PENDING')),
             'likes' => 0,
             'replies' => 0,
             'date' => $formatActivityDate($answer['created_at'] ?? null),
@@ -140,14 +143,14 @@ try {
 } catch (PDOException $exception) {
     try {
         $answersStmt = $pdo->prepare(
-            'SELECT a.id, a.answer_text, a.created_at,
+            "SELECT a.id, a.answer_text, a.publication_status, a.created_at,
                     q.id AS question_id, q.title AS question_title,
                     q.body AS question_description, c.name AS category
              FROM answers a
              INNER JOIN questions q ON q.id = a.question_id
              LEFT JOIN categories c ON c.id = q.category_id
              WHERE a.user_id = :user_id
-             ORDER BY a.created_at DESC'
+             ORDER BY a.created_at DESC"
         );
         $answersStmt->execute([':user_id' => $userId]);
 
@@ -159,6 +162,7 @@ try {
                 'description' => (string)($answer['question_description'] ?? ''),
                 'answer' => (string)($answer['answer_text'] ?? ''),
                 'category' => (string)($answer['category'] ?? ''),
+                'publication_status' => strtoupper((string)($answer['publication_status'] ?? 'PENDING')),
                 'likes' => 0,
                 'replies' => 0,
                 'date' => $formatActivityDate($answer['created_at'] ?? null),
@@ -534,6 +538,36 @@ select:focus-visible {
   font-weight:750;
   text-transform:uppercase;
   letter-spacing:.7px;
+}
+
+.activity-meta {
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.answer-status {
+  display:inline-flex;
+  padding:5px 9px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+}
+
+.answer-status-published {
+  background:#dcfce7;
+  color:#166534;
+}
+
+.answer-status-pending {
+  background:#fef3c7;
+  color:#92400e;
+}
+
+.answer-status-rejected {
+  background:#fee2e2;
+  color:#991b1b;
 }
 
 .question-title {
@@ -1210,10 +1244,23 @@ function renderQuestions() {
   visibleQuestions.forEach(question => {
     const article = document.createElement("article");
     article.className = "question-item";
+    const publicationStatus = String(question.publication_status || "").toUpperCase();
+    const answerStatus = {
+      APPROVED: { label: "Published", className: "published" },
+      PENDING: { label: "Pending review", className: "pending" },
+      REJECTED: { label: "Not published", className: "rejected" }
+    }[publicationStatus] || { label: "Pending review", className: "pending" };
 
     article.innerHTML = `
-      <div class="question-category">
-        ${escapeHTML(question.category || "General")}
+      <div class="activity-meta">
+        <div class="question-category">
+          ${escapeHTML(question.category || "General")}
+        </div>
+        ${question.type === "answer" ? `
+          <span class="answer-status answer-status-${answerStatus.className}">
+            ${escapeHTML(answerStatus.label)}
+          </span>
+        ` : ""}
       </div>
 
       <h3 class="question-title">
