@@ -1387,3 +1387,134 @@ body.modal-open {
         width: 92%;
     }
 }
+
+/* FEATURED EVENT IMAGE FRAME */
+
+.featured-art {
+    position: relative;
+    width: 100%;
+    min-height: 456px;
+    padding: 10px;
+    overflow: hidden;
+    background: #edf2f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.featured-event-image {
+    display: block;
+    width: 100%;
+    height: 436px;
+    object-fit: contain;
+    object-position: center;
+    background: #ffffff;
+    border: 2px solid #d8e3ef;
+    border-radius: 8px;
+}
+
+.featured-image-placeholder {
+    width: 100%;
+    height: 436px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #d8e3ef;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+@media (max-width: 768px) {
+    .featured-art {
+        min-height: 300px;
+        padding: 8px;
+    }
+
+    .featured-event-image {
+        height: 284px;
+    }
+
+    .featured-image-placeholder {
+        height: 284px;
+    }
+}
+
+/* REMOVE EVENT NAME FROM IMAGE */
+
+.event-cover .cover-title h3 {
+    display: none;
+}
+
+/* CLEAN UPCOMING EVENT POSTERS */
+
+#eventsGrid .event-cover {
+    position: relative;
+    overflow: hidden;
+    background-color: #ffffff;
+}
+
+/* Remove all text and icons from the image */
+
+#eventsGrid .event-cover .cover-label,
+#eventsGrid .event-cover .cover-graphic,
+#eventsGrid .event-cover .cover-title,
+#eventsGrid .event-cover .cover-year {
+    display: none !important;
+}
+
+/* Remove dark overlay and decorative layers */
+
+#eventsGrid .event-cover::before,
+#eventsGrid .event-cover::after {
+    content: none !important;
+    display: none !important;
+}
+
+/* Display the actual uploaded poster */
+
+#eventsGrid .event-cover img {
+    display: block;
+    width: 100%;
+    height: 240px;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* UPCOMING EVENTS - CLEAR IMAGE DISPLAY */
+
+#eventsGrid .event-cover {
+    position: relative;
+    padding: 0 !important;
+    overflow: hidden;
+    background: #edf2f8 !important;
+}
+
+/* Actual uploaded image */
+
+#eventsGrid .event-poster-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    background: #edf2f8;
+}
+
+/* Remove text and icons */
+
+#eventsGrid .event-cover .cover-label,
+#eventsGrid .event-cover .cover-graphic,
+#eventsGrid .event-cover .cover-title,
+#eventsGrid .event-cover .cover-year {
+    display: none !important;
+}
+
+/* Remove dark decorative overlays */
+
+#eventsGrid .event-cover::before,
+#eventsGrid .event-cover::after {
+    display: none !important;
+    content: none !important;
+}

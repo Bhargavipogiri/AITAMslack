@@ -45,6 +45,12 @@ $mainMenu = [
         'title' => 'Announcements Management',
         'icon' => 'bi-megaphone',
         'link' => '/AITAMslack/admin/announcements.php'
+    ],
+
+    [
+    'title' => 'Event Management',
+    'icon' => 'bi-calendar-event',
+    'link' => '/AITAMslack/admin/events.php'
     ]
 ];
 

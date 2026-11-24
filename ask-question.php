@@ -27,12 +27,10 @@ $textLength = static function (string $value): int {
 ===================================== */
 
 $categories = [
-    'Programming',
+    'Admissions',
     'Academics',
-    'Projects',
     'Placements',
-    'Technical',
-    'General'
+    'Campus Life',
 ];
 
 /* =====================================
