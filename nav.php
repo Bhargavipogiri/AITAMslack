@@ -126,7 +126,7 @@ $profileInitial = implode('', array_map(
             <a href="answer.php" class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"<?= $currentPage === 'answer.php' ? ' aria-current="page"' : '' ?>>Answer</a>
             <a href="leaderboard.php" class="cc-nav-link<?= $currentPage === 'leaderboard.php' ? ' active' : '' ?>"<?= $currentPage === 'leaderboard.php' ? ' aria-current="page"' : '' ?>>Leaderboard</a>
             <a href="report.php" class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"<?= $currentPage === 'report.php' ? ' aria-current="page"' : '' ?>>Report</a>
-            <a href="index.php#events" class="cc-nav-link">Events</a>
+            <a href="events.php" class="cc-nav-link<?= $currentPage === 'events.php' ? ' active' : '' ?>"<?= $currentPage === 'events.php' ? ' aria-current="page"' : '' ?>>Events</a>
             <a href="about.php" class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"<?= $currentPage === 'about.php' ? ' aria-current="page"' : '' ?>>About</a>
             
             <!-- MOBILE ACTIONS -->
