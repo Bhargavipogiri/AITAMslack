@@ -1,26 +1,215 @@
+<?php
+session_start();
 
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
+
+$userId = filter_var($_SESSION['user_id'], FILTER_VALIDATE_INT);
+if ($userId === false || $userId < 1) {
+    header('Location: login.php');
+    exit;
+}
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+require_once __DIR__ . '/config/db.php';
+
+try {
+    $userStmt = $pdo->prepare(
+        'SELECT full_name, email, department, role, profile_image, points
+         FROM users
+         WHERE user_id = :user_id
+         LIMIT 1'
+    );
+    $userStmt->execute([':user_id' => $userId]);
+    $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $exception) {
+    error_log('Profile load error: ' . $exception->getMessage());
+    http_response_code(500);
+    exit('Unable to load your profile right now. Please try again later.');
+}
+
+if (!$user) {
+    unset($_SESSION['user_id']);
+    header('Location: login.php');
+    exit;
+}
+
+$_SESSION['full_name'] = $user['full_name'];
+$_SESSION['email'] = $user['email'];
+$_SESSION['department'] = $user['department'];
+$_SESSION['role'] = $user['role'];
+$_SESSION['profile_image'] = $user['profile_image'] ?? '';
+
+$formatActivityDate = static function ($value): string {
+    if (!is_string($value) || $value === '') {
+        return '';
+    }
+
+    $timestamp = strtotime($value);
+    return $timestamp === false ? '' : date('M j, Y', $timestamp);
+};
+
+$defaultQuestions = [];
+try {
+    $questionsStmt = $pdo->prepare(
+        'SELECT id, question_title, question_description, category, created_at
+         FROM questions
+         WHERE user_id = :user_id
+         ORDER BY created_at DESC'
+    );
+    $questionsStmt->execute([':user_id' => $userId]);
+
+    foreach ($questionsStmt->fetchAll(PDO::FETCH_ASSOC) as $question) {
+        $defaultQuestions[] = [
+            'id' => 'question-' . (int)$question['id'],
+            'type' => 'question',
+            'title' => (string)($question['question_title'] ?? ''),
+            'description' => (string)($question['question_description'] ?? ''),
+            'answer' => '',
+            'category' => (string)($question['category'] ?? ''),
+            'likes' => 0,
+            'replies' => 0,
+            'date' => $formatActivityDate($question['created_at'] ?? null),
+        ];
+    }
+} catch (PDOException $exception) {
+    try {
+        $questionsStmt = $pdo->prepare(
+            'SELECT q.id, q.title AS question_title, q.body AS question_description,
+                    c.name AS category, q.created_at
+             FROM questions q
+             LEFT JOIN categories c ON c.id = q.category_id
+             WHERE q.user_id = :user_id
+             ORDER BY q.created_at DESC'
+        );
+        $questionsStmt->execute([':user_id' => $userId]);
+
+        foreach ($questionsStmt->fetchAll(PDO::FETCH_ASSOC) as $question) {
+            $defaultQuestions[] = [
+                'id' => 'question-' . (int)$question['id'],
+                'type' => 'question',
+                'title' => (string)($question['question_title'] ?? ''),
+                'description' => (string)($question['question_description'] ?? ''),
+                'answer' => '',
+                'category' => (string)($question['category'] ?? ''),
+                'likes' => 0,
+                'replies' => 0,
+                'date' => $formatActivityDate($question['created_at'] ?? null),
+            ];
+        }
+    } catch (PDOException $fallbackException) {
+        error_log(
+            'Profile question history unavailable: '
+            . $exception->getMessage()
+            . ' | Alternate schema: '
+            . $fallbackException->getMessage()
+        );
+    }
+}
+
+try {
+    $answersStmt = $pdo->prepare(
+        'SELECT a.id, a.answer_text, a.created_at,
+                q.id AS question_id, q.question_title,
+                q.question_description, q.category
+         FROM answers a
+         INNER JOIN questions q ON q.id = a.question_id
+         WHERE a.user_id = :user_id
+         ORDER BY a.created_at DESC'
+    );
+    $answersStmt->execute([':user_id' => $userId]);
+
+    foreach ($answersStmt->fetchAll(PDO::FETCH_ASSOC) as $answer) {
+        $defaultQuestions[] = [
+            'id' => 'answer-' . (int)$answer['id'],
+            'type' => 'answer',
+            'title' => (string)($answer['question_title'] ?? ''),
+            'description' => (string)($answer['question_description'] ?? ''),
+            'answer' => (string)($answer['answer_text'] ?? ''),
+            'category' => (string)($answer['category'] ?? ''),
+            'likes' => 0,
+            'replies' => 0,
+            'date' => $formatActivityDate($answer['created_at'] ?? null),
+        ];
+    }
+} catch (PDOException $exception) {
+    try {
+        $answersStmt = $pdo->prepare(
+            'SELECT a.id, a.answer_text, a.created_at,
+                    q.id AS question_id, q.title AS question_title,
+                    q.body AS question_description, c.name AS category
+             FROM answers a
+             INNER JOIN questions q ON q.id = a.question_id
+             LEFT JOIN categories c ON c.id = q.category_id
+             WHERE a.user_id = :user_id
+             ORDER BY a.created_at DESC'
+        );
+        $answersStmt->execute([':user_id' => $userId]);
+
+        foreach ($answersStmt->fetchAll(PDO::FETCH_ASSOC) as $answer) {
+            $defaultQuestions[] = [
+                'id' => 'answer-' . (int)$answer['id'],
+                'type' => 'answer',
+                'title' => (string)($answer['question_title'] ?? ''),
+                'description' => (string)($answer['question_description'] ?? ''),
+                'answer' => (string)($answer['answer_text'] ?? ''),
+                'category' => (string)($answer['category'] ?? ''),
+                'likes' => 0,
+                'replies' => 0,
+                'date' => $formatActivityDate($answer['created_at'] ?? null),
+            ];
+        }
+    } catch (PDOException $fallbackException) {
+        error_log(
+            'Profile answer history unavailable: '
+            . $exception->getMessage()
+            . ' | Alternate schema: '
+            . $fallbackException->getMessage()
+        );
+    }
+}
+
+$defaultProfile = [
+    'name' => (string)$user['full_name'],
+    'email' => (string)$user['email'],
+    'department' => (string)($user['department'] ?? ''),
+    'role' => (string)($user['role'] ?? ''),
+    'points' => (float)($user['points'] ?? 0),
+    'profile_image' => (string)($user['profile_image'] ?? ''),
+];
+$displayProfileName = trim($defaultProfile['name']);
+if (strcasecmp((string)$defaultProfile['role'], 'faculty') === 0) {
+    $displayProfileName = trim(preg_replace('/^Sri\s+/iu', '', $displayProfileName) ?? $displayProfileName);
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AITAM Slack | Student Profile</title>
+<title>AITAM Slack | My Profile</title>
+<link rel="stylesheet" href="assets/css/root.css">
 
 <style>
 :root {
-  --navy:#0F2854;
-  --blue:#1C4D8D;
-  --secondary:#4988C4;
-  --cyan:#BDE8F5;
-  --bg:#F4F8FC;
-  --surface:#FFFFFF;
-  --muted-bg:#EAF2F9;
-  --text:#172B45;
-  --secondary-text:#52657B;
-  --muted:#7B8DA2;
-  --border:#DCE6EF;
-  --success:#16835D;
-  --shadow:0 8px 24px rgba(15,40,84,.08);
+  --navy:var(--color-navy-950);
+  --blue:var(--color-blue-800);
+  --secondary:var(--color-blue-500);
+  --cyan:var(--color-cyan-100);
+  --bg:var(--bg-app);
+  --surface:var(--bg-surface);
+  --muted-bg:var(--bg-surface-muted);
+  --text:var(--text-primary);
+  --secondary-text:var(--text-secondary);
+  --muted:var(--text-muted);
+  --border:var(--border-default);
+  --success:var(--color-success);
+  --shadow:var(--shadow-md);
 }
 
 
@@ -541,6 +730,14 @@ select:focus-visible {
   transform:translate(-50%,0);
 }
 
+.toast.error {
+  background:var(--color-danger);
+}
+
+.toast.error::before {
+  content:"!";
+}
+
 @media(max-width:700px) {
   .page {
     width:calc(100% - 24px);
@@ -657,33 +854,33 @@ body {
 .profile-main { padding-bottom:35px; }
 .profile-name { letter-spacing:-1px; }
 .profile-subtitle { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
-.profile-subtitle::after { content:"Student"; font-size:11px; font-weight:750; letter-spacing:.3px; color:#14734f; background:#e6f7ef; border:1px solid #c6eedb; border-radius:999px; padding:4px 9px; }
+.profile-role-badge { font-size:11px; font-weight:750; letter-spacing:.3px; color:#14734f; background:#e6f7ef; border:1px solid #c6eedb; border-radius:999px; padding:4px 9px; }
 .profile-meta { gap:10px; }
-.meta-item { padding:9px 12px; border:1px solid var(--border); border-radius:999px; background:#fff; }
+.meta-item { padding:9px 12px; border:1px solid var(--border); border-radius:999px; background:var(--surface); }
 .meta-item span:first-child { font-size:15px; }
 .btn { box-shadow:0 2px 5px rgba(15,40,84,.04); }
 .btn-primary { box-shadow:0 7px 16px rgba(28,77,141,.2); }
 .card { border-radius:20px; }
 .section-title { display:flex; align-items:center; gap:10px; }
 .section-title::before { content:""; width:5px; height:20px; border-radius:9px; background:linear-gradient(var(--secondary),var(--cyan)); }
-.info-item { padding:14px 15px; border:1px solid #e8eef5; border-radius:13px; background:linear-gradient(145deg,#fff,#fbfdff); transition:transform .18s,border-color .18s; }
+.info-item { padding:14px 15px; border:1px solid var(--border); border-radius:13px; background:var(--surface); transition:transform .18s,border-color .18s; }
 .info-item:hover { transform:translateY(-2px); border-color:#b9d4eb; }
 .info-label { text-transform:uppercase; letter-spacing:.55px; font-size:10px; }
-.profile-tabs { gap:4px; padding:5px; border:1px solid var(--border); border-radius:14px; background:#f6f9fc; margin:0 0 24px; }
+.profile-tabs { gap:4px; padding:5px; border:1px solid var(--border); border-radius:14px; background:var(--muted-bg); margin:0 0 24px; }
 .profile-tab { border:0; border-radius:10px; padding:12px 17px; transition:background .2s,color .2s,box-shadow .2s; }
-.profile-tab.active { background:#fff; color:var(--blue); box-shadow:0 3px 10px rgba(15,40,84,.09); }
+.profile-tab.active { background:var(--surface); color:var(--blue); box-shadow:0 3px 10px rgba(15,40,84,.09); }
 .question-item { padding:20px; margin:0 -2px; border:1px solid transparent; border-bottom-color:var(--border); border-radius:14px; transition:background .2s,border-color .2s; }
-.question-item:hover { background:#fbfdff; border-color:#e1ebf5; }
-.question-category { display:inline-flex; padding:5px 9px; border-radius:999px; background:#eaf2f9; }
+.question-item:hover { background:var(--surface); border-color:var(--border); }
+.question-category { display:inline-flex; padding:5px 9px; border-radius:999px; background:var(--muted-bg); }
 .question-title { margin-top:12px; }
-.stat-button { padding:7px 10px; border-radius:8px; background:#f4f7fb; transition:background .2s; }
-.stat-button:hover { background:#eaf2f9; }
-.empty-state { border:1px dashed #cbd9e7; border-radius:15px; background:#fbfdff; }
+.stat-button { padding:7px 10px; border-radius:8px; background:var(--muted-bg); transition:background .2s; }
+.stat-button:hover { background:var(--muted-bg); }
+.empty-state { border:1px dashed var(--border); border-radius:15px; background:var(--surface); }
 .modal { animation:modalIn .2s ease-out; }
 @keyframes modalIn { from { opacity:0; transform:translateY(10px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
 .modal-overlay { opacity:0; transition:opacity .18s ease; }
 .modal-overlay.show { opacity:1; }
-.form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color:var(--secondary); background:#fff; box-shadow:0 0 0 4px rgba(73,136,196,.12); }
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color:var(--secondary); background:var(--surface); box-shadow:0 0 0 4px rgba(73,136,196,.12); }
 .toast { display:flex; align-items:center; gap:9px; }
 .toast::before { content:"✓"; display:grid; place-items:center; width:21px; height:21px; border-radius:50%; background:#ffffff24; font-weight:800; }
 .profile-progress { margin-top:23px; max-width:450px; }
@@ -691,7 +888,7 @@ body {
 .progress-track { height:7px; border-radius:99px; overflow:hidden; background:#e8eff6; }
 .progress-fill { height:100%; width:0; border-radius:inherit; background:linear-gradient(90deg,var(--secondary),#68c3d8); transition:width .35s ease; }
 .profile-quick-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:15px; }
-.quick-action { border:1px solid var(--border); background:#fff; color:var(--blue); border-radius:9px; padding:8px 11px; font-size:12px; font-weight:700; transition:.2s; }
+.quick-action { border:1px solid var(--border); background:var(--surface); color:var(--blue); border-radius:9px; padding:8px 11px; font-size:12px; font-weight:700; transition:.2s; }
 .quick-action:hover { background:#eef6fc; border-color:#b8d4ed; transform:translateY(-1px); }
 @media(max-width:700px) { .profile-cover { height:145px; } .profile-progress { max-width:none; } .profile-tabs { width:100%; } .profile-tab { flex:1; padding:11px 8px; font-size:13px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
@@ -700,6 +897,8 @@ body {
 </head>
 
 <body>
+
+<?php include __DIR__ . '/nav.php'; ?>
 
 <main class="page">
 
@@ -715,14 +914,14 @@ body {
       <div class="profile-top">
 
         <div class="avatar-wrap">
-          <div class="avatar" id="profileAvatar">LP</div>
+          <div class="avatar" id="profileAvatar"></div>
 
           <button class="photo-upload"
                   id="photoButton"
                   type="button"
                   aria-label="Upload profile picture">+</button>
 
-          <input type="file" id="photoInput" accept="image/*">
+          <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp">
         </div>
 
         <div class="profile-actions">
@@ -735,10 +934,11 @@ body {
       </div>
 
       <div class="profile-details">
-        <h1 class="profile-name" id="profileName">Student Name</h1>
+        <h1 class="profile-name" id="profileName"><?= htmlspecialchars($displayProfileName, ENT_QUOTES, 'UTF-8') ?></h1>
 
         <div class="profile-subtitle" id="profileSubtitle">
-          B.Tech · Computer Science and Engineering
+          <span id="profileSubtitleText"></span>
+          <span class="profile-role-badge" id="profileRoleBadge"></span>
         </div>
 
         <div class="profile-meta">
@@ -760,9 +960,9 @@ body {
 
   <div class="content">
 
-    <!-- ALL REGISTRATION INFORMATION -->
+    <!-- PROFILE INFORMATION -->
     <section class="card">
-      <h2 class="section-title">Student Information</h2>
+      <h2 class="section-title">Profile Information</h2>
       <div class="info-grid" id="infoGrid"></div>
     </section>
 
@@ -808,7 +1008,7 @@ body {
     <form id="editForm">
       <div class="form-grid" id="editFields"></div>
       <p class="password-note" style="font-size:12px;color:var(--secondary-text);margin:12px 0 0;line-height:1.5;">
-        Password is never shown in Student Information and is not saved in this browser. A secure backend is required to change your account password.
+        Leave the password blank to keep your current password. New passwords must be at least 8 characters.
       </p>
 
       <div class="modal-actions">
@@ -824,85 +1024,14 @@ body {
 
 <script>
 const $ = id => document.getElementById(id);
+const defaultProfile = <?= json_encode($defaultProfile, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?>;
+const defaultQuestions = <?= json_encode($defaultQuestions, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?>;
+const csrfToken = <?= json_encode($_SESSION['csrf_token'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
-/*
-  REGISTRATION DATA
-
-  These fields are examples.
-  Replace them with the actual registration data
-  or load them from your registration system.
-*/
-
-const defaultProfile = {
-  name: "Student Name",
-  email: "",
-  department: "",
-  role: ""
-};
-
-/*
-  QUESTIONS
-
-  Replace these examples with questions retrieved
-  from your website's question database.
-*/
-
-const defaultQuestions = [
-  {
-    id: "q1",
-    title: "How can I start learning Machine Learning?",
-    description: "I want to build my first ML project. Which concepts should I learn before starting?",
-    answer: "Start with Python, basic statistics, probability, and linear algebra. Then learn supervised learning, model evaluation, and build a small project using a dataset.",
-    category: "Machine Learning",
-    likes: 12,
-    replies: 5,
-    date: "2 days ago"
-  },
-  {
-    id: "q2",
-    title: "Best resources for learning Python?",
-    description: "Looking for beginner-friendly resources and practice problems to improve my Python skills.",
-    answer: "Use the official Python tutorial for fundamentals, then practice regularly on platforms such as HackerRank or LeetCode. Build small projects to apply what you learn.",
-    category: "Programming",
-    likes: 8,
-    replies: 3,
-    date: "5 days ago"
-  }
-];
-
-function loadJSON(key, fallback) {
-  try {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-let profile = {
-  ...defaultProfile,
-  ...loadJSON("aitamSlackProfile", {})
-};
-
-let questions = loadJSON("aitamSlackQuestions", defaultQuestions);
-
-let currentPhoto = profile.photo || "";
+let profile = { ...defaultProfile };
+let questions = defaultQuestions;
+let currentPhoto = profile.profile_image || "";
 let toastTimer;
-
-function saveProfile() {
-  try {
-    localStorage.setItem("aitamSlackProfile", JSON.stringify(profile));
-    return true;
-  } catch (error) {
-    console.error("Could not save profile:", error);
-    showToast("Could not save changes in this browser. Try a smaller photo or enable site storage.");
-    return false;
-  }
-}
-
-function saveQuestions() {
-  localStorage.setItem("aitamSlackQuestions", JSON.stringify(questions));
-}
 
 function escapeHTML(value) {
   return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -916,15 +1045,33 @@ function escapeHTML(value) {
 
 function safeURL(value) {
   try {
-    const url = new URL(value);
+    const url = new URL(value, window.location.href);
     return ["https:", "http:"].includes(url.protocol) ? url.href : "";
   } catch {
     return "";
   }
 }
 
+function displayName() {
+  const name = String(profile.name || "").trim();
+  return String(profile.role || "").toLowerCase() === "faculty"
+    ? name.replace(/^Sri\s+/i, "")
+    : name;
+}
+
+function roleLabel(role) {
+  const labels = {
+    fresher: "Fresher",
+    student: "Student",
+    faculty: "Faculty",
+    alumni: "Alumni"
+  };
+  return labels[String(role || "").toLowerCase()] || "Role not provided";
+}
+
 function initials(name) {
-  return name.trim().split(/\s+/).slice(0,2)
+  const initialName = String(name || "").trim().split(/\s+/).slice(0,2);
+  return initialName
     .map(word => word[0]?.toUpperCase() || "")
     .join("") || "S";
 }
@@ -932,14 +1079,15 @@ function initials(name) {
 function renderAvatar() {
   const avatar = $("profileAvatar");
   avatar.innerHTML = "";
+  const imageURL = safeURL(currentPhoto);
 
-  if (currentPhoto) {
+  if (imageURL) {
     const image = document.createElement("img");
-    image.src = currentPhoto;
-    image.alt = "Student profile picture";
+    image.src = imageURL;
+    image.alt = "Profile picture";
     avatar.appendChild(image);
   } else {
-    avatar.textContent = initials(profile.name);
+    avatar.textContent = initials(displayName());
   }
 }
 
@@ -947,10 +1095,11 @@ function renderAvatar() {
 
 function renderInfo() {
   const fields = [
-    ["Full Name", profile.name],
+    ["Full Name", displayName()],
     ["Email Address", profile.email],
     ["Department / Branch", profile.department],
-    ["Role", profile.role]
+    ["Role", roleLabel(profile.role)],
+    ["Points", Number(profile.points || 0).toLocaleString()]
   ];
 
   $("infoGrid").innerHTML = "";
@@ -966,10 +1115,11 @@ function renderInfo() {
 }
 
 function renderProfile() {
-  $("profileName").textContent = profile.name || "Student Name";
-  $("profileSubtitle").textContent = `B.Tech · ${profile.department || "Department not provided"}`;
+  $("profileName").textContent = displayName() || "Profile";
+  $("profileSubtitleText").textContent = `B.Tech · ${profile.department || "Department not provided"}`;
+  $("profileRoleBadge").textContent = roleLabel(profile.role);
   $("profileDepartment").textContent = profile.department || "Department not provided";
-  $("profileRole").textContent = profile.role || "Role not provided";
+  $("profileRole").textContent = roleLabel(profile.role);
   $("profileEmail").textContent = profile.email || "Email not provided";
   renderAvatar();
   renderInfo();
@@ -979,6 +1129,39 @@ function renderProfile() {
   $("completionFill").style.width = `${percent}%`;
   $("copyEmailButton").disabled = !profile.email;
   $("copyEmailButton").style.opacity = profile.email ? "1" : ".55";
+}
+
+function syncNavbarProfile() {
+  const name = displayName();
+  const avatarURL = safeURL(profile.profile_image || "");
+  const avatarInitial = Array.from(name)[0] || "?";
+
+  document.querySelectorAll(".nav-profile-wrapper").forEach(wrapper => {
+    const nameElement = wrapper.querySelector(".nav-user-name");
+    const roleElement = wrapper.querySelector(".nav-user-role");
+    if (nameElement) nameElement.textContent = name;
+    if (roleElement) roleElement.textContent = roleLabel(profile.role);
+
+    let image = wrapper.querySelector(".nav-avatar-img");
+    let fallback = wrapper.querySelector(".nav-avatar-fallback");
+    if (avatarURL) {
+      if (!image) {
+        image = document.createElement("img");
+        image.className = "nav-avatar-img";
+        image.alt = "";
+        fallback?.replaceWith(image);
+      }
+      image.src = avatarURL;
+    } else {
+      if (image) {
+        fallback = document.createElement("span");
+        fallback.className = "nav-avatar-fallback";
+        fallback.setAttribute("aria-hidden", "true");
+        image.replaceWith(fallback);
+      }
+      if (fallback) fallback.textContent = avatarInitial;
+    }
+  });
 }
 
 
@@ -1004,9 +1187,11 @@ function setActivityTab(tab) {
 function renderQuestions() {
   const container = $("questionsList");
   container.innerHTML = "";
-  const visibleQuestions = activeActivityTab === "answers"
-    ? questions.filter(question => String(question.answer || "").trim())
-    : questions;
+  const visibleQuestions = questions.filter(question =>
+    activeActivityTab === "answers"
+      ? question.type === "answer"
+      : question.type === "question"
+  );
 
   $("questionCount").textContent =
     `${visibleQuestions.length} ${visibleQuestions.length === 1 ? (activeActivityTab === "answers" ? "Answer" : "Question") : (activeActivityTab === "answers" ? "Answers" : "Questions")}`;
@@ -1092,8 +1277,6 @@ $("questionsList").addEventListener("click", event => {
 
   button.querySelector(".like-count").textContent = question.likes;
   button.firstChild.textContent = liked ? "♥ " : "♡ ";
-
-  saveQuestions();
 });
 
 /* EDIT FORM */
@@ -1182,26 +1365,43 @@ $("editModal").addEventListener("click", event => {
   if (event.target === $("editModal")) closeEditModal();
 });
 
-$("editForm").addEventListener("submit", event => {
+$("editForm").addEventListener("submit", async event => {
   event.preventDefault();
 
+  const updates = {};
   editableFields.forEach(([key]) => {
-    if (key === "password") return;
     const value = $("edit-" + key).value.trim();
-    profile[key] = value;
+    if (key === "password") {
+      if (value) updates.password = value;
+      return;
+    }
+    updates[key] = value;
   });
 
-  // Password is intentionally never written to profile/localStorage.
-  const passwordWasEntered = Boolean($("edit-password").value);
-  $("edit-password").value = "";
+  try {
+    const response = await fetch("auth/update_profile.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken
+      },
+      body: JSON.stringify(updates)
+    });
+    const result = await response.json();
 
-  if (!saveProfile()) return;
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to update your profile.");
+    }
 
-  renderProfile();
-  closeEditModal();
-  showToast(passwordWasEntered
-    ? "Profile saved. Password change needs a secure backend."
-    : "Changes saved successfully!");
+    profile = { ...profile, ...result.profile };
+    $("edit-password").value = "";
+    renderProfile();
+    syncNavbarProfile();
+    closeEditModal();
+    showToast(result.message || "Changes saved successfully!");
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "Unable to update your profile.", "error");
+  }
 });
 
 /* PROFILE QUICK ACTIONS */
@@ -1226,43 +1426,57 @@ $("photoButton").addEventListener("click", () => {
   $("photoInput").click();
 });
 
-$("photoInput").addEventListener("change", event => {
+$("photoInput").addEventListener("change", async event => {
   const file = event.target.files[0];
 
   if (!file) return;
 
-  if (!file.type.startsWith("image/")) {
-    showToast("Please select an image file.");
-    return;
-  }
-
   if (file.size > 3 * 1024 * 1024) {
-    showToast("Choose an image smaller than 3 MB.");
+    showToast("Choose an image no larger than 3 MB.", "error");
     return;
   }
 
-  const reader = new FileReader();
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+  if (file.type && !allowedTypes.includes(file.type)) {
+    showToast("Choose a JPEG, PNG, or WebP image.", "error");
+    return;
+  }
 
-  reader.onload = () => {
-    currentPhoto = reader.result;
-    profile.photo = currentPhoto;
+  const formData = new FormData();
+  formData.append("avatar", file);
 
-    saveProfile();
+  try {
+    const response = await fetch("auth/upload_avatar.php", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: formData
+    });
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to upload your profile picture.");
+    }
+
+    profile.profile_image = result.profile_image;
+    currentPhoto = result.profile_image;
     renderAvatar();
-
+    syncNavbarProfile();
     showToast("Profile picture updated!");
-  };
-
-  reader.readAsDataURL(file);
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "Unable to upload your profile picture.", "error");
+  } finally {
+    event.target.value = "";
+  }
 });
 
 /* TOAST */
 
-function showToast(message) {
+function showToast(message, type = "success") {
   const toast = $("toast");
 
   toast.textContent = message;
   toast.classList.add("show");
+  toast.classList.toggle("error", type === "error");
 
   clearTimeout(toastTimer);
 
@@ -1280,6 +1494,8 @@ document.addEventListener("keydown", event => {
 renderProfile();
 renderQuestions();
 </script>
+
+<?php include __DIR__ . '/footer.php'; ?>
 
 </body>
 </html>

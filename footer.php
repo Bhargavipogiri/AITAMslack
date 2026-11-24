@@ -1,4 +1,10 @@
+<?php
+require_once __DIR__ . '/admin/includes/platform-settings.php';
 
+$platformName = $platformSettings['platform_name'] ?? 'AITAM SLACK';
+$platformDescription = $platformSettings['platform_description'] ?? 'AITAM COMMUNITY';
+$supportEmail = $platformSettings['support_email'] ?? '';
+?>
 <footer class="main-footer">
 
     <div class="footer-container">
@@ -7,18 +13,20 @@
         <div class="footer-brand">
 
             <a href="index.php" class="footer-brand-link">
+
                 <div class="footer-logo-box">
-                    <img src="assets/images/logo.png"
-                         alt="AITAM College Logo"
-                         width="44"
-                         height="44"
-                         class="footer-logo">
+                    <img src="https://adityatekkali.edu.in/ahlaad2k26/aitamsinglelogo.png"
+                        alt="AITAM College Logo"
+                        width="44"
+                        height="44"
+                        class="footer-logo">
                 </div>
 
                 <div class="footer-brand-text">
-                    <h2>AITAM SLACK</h2>
-                    <span>AITAM COMMUNITY</span>
+                    <h2><?= htmlspecialchars($platformName, ENT_QUOTES, 'UTF-8') ?></h2>
+                    <span><?= htmlspecialchars($platformDescription, ENT_QUOTES, 'UTF-8') ?></span>
                 </div>
+
             </a>
 
         </div>
@@ -52,11 +60,10 @@
         <!-- About Section -->
         <div class="footer-about">
 
-            <h3>About AITAM Slack</h3>
+            <h3>About <?= htmlspecialchars($platformName, ENT_QUOTES, 'UTF-8') ?></h3>
 
             <p>
-                A platform connecting students and faculty
-                to share knowledge and information.
+                A collaborative campus platform where students and faculty connect, ask questions, share knowledge, and learn together.
             </p>
 
         </div>
@@ -68,8 +75,9 @@
 
             <p>
                 <span class="contact-label">Email</span>
-                <a href="mailto:csmdepartment987@gmail.com">
-                    csmdepartment987@gmail.com
+
+                <a href="mailto:<?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars($supportEmail, ENT_QUOTES, 'UTF-8') ?>
                 </a>
             </p>
 
@@ -88,7 +96,8 @@
     <div class="footer-bottom">
 
         <p>
-            &copy; <?php echo date("Y"); ?> AITAM SLACK
+            &copy; <?= date("Y") ?>
+            <?= htmlspecialchars($platformName, ENT_QUOTES, 'UTF-8') ?>
         </p>
 
         <details class="footer-developer">

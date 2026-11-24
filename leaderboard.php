@@ -1,863 +1,497 @@
 <?php
+<<<<<<< HEAD
+=======
 session_start();
 
+>>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
 require_once 'lesder-db.php';
 
-/* Fetch students based on total points */
-$sql = "SELECT id, name, department, year,
-               profile_image, total_points
-        FROM students
-        ORDER BY total_points DESC, name ASC";
+/* Escape output safely */
+function e($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
 
-$stmt = $conn->prepare($sql);
-$stmt->execute();
+try {
+    /*
+     * Count questions and answers separately.
+     * Points = number of questions asked.
+     */
+    $sql = "
+        SELECT
+            s.id,
+            s.name,
+            s.department,
+            s.year,
+            s.profile_image,
 
-$students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            COALESCE(q.questions_asked, 0) AS questions_asked,
+            COALESCE(a.answers_given, 0) AS answers_given,
 
-/* Get top three students */
+            COALESCE(q.questions_asked, 0) AS total_points
+
+        FROM students s
+
+        LEFT JOIN (
+            SELECT user_id, COUNT(*) AS questions_asked
+            FROM questions
+            GROUP BY user_id
+        ) q ON q.user_id = s.id
+
+        LEFT JOIN (
+            SELECT user_id, COUNT(*) AS answers_given
+            FROM answers
+            GROUP BY user_id
+        ) a ON a.user_id = s.id
+
+        ORDER BY
+            total_points DESC,
+            answers_given DESC,
+            s.name ASC
+    ";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute();
+
+    $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    error_log($e->getMessage());
+    die("Unable to load leaderboard. Please try again later.");
+}
+
+/* Top three students */
 $topThree = array_slice($students, 0, 3);
 
-/* Display order: Second, First, Third */
-$podium = [];
+$totalStudents = count($students);
+$totalQuestions = array_sum(array_column($students, 'questions_asked'));
+$totalAnswers = array_sum(array_column($students, 'answers_given'));
 
-if (isset($topThree[1])) {
-    $podium[] = [
-        'student' => $topThree[1],
-        'rank' => 2,
-        'class' => 'second-place',
-        'label' => 'RUNNER UP',
-        'medal' => '🥈'
-    ];
+function getRank($rank) {
+    if ($rank == 1) return "🥇";
+    if ($rank == 2) return "🥈";
+    if ($rank == 3) return "🥉";
+    return $rank;
 }
-
-if (isset($topThree[0])) {
-    $podium[] = [
-        'student' => $topThree[0],
-        'rank' => 1,
-        'class' => 'first-place',
-        'label' => 'CHAMPION',
-        'medal' => '🥇'
-    ];
-}
-
-if (isset($topThree[2])) {
-    $podium[] = [
-        'student' => $topThree[2],
-        'rank' => 3,
-        'class' => 'third-place',
-        'label' => 'THIRD PLACE',
-        'medal' => '🥉'
-    ];
-}
-
-/* Generate student initials */
-function getInitials($name) {
-    $words = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY);
-    $initials = '';
-
-    foreach (array_slice($words, 0, 2) as $word) {
-        $initials .= mb_substr($word, 0, 1);
-    }
-
-    return strtoupper($initials);
-}
-
-/* Format points */
-function formatPoints($points) {
-    return number_format((float)$points, 2);
-}
-
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>AITAM Slack - Leaderboard</title>
+    <title>Leaderboard | AITAM Slack</title>
 
-    <!-- Root CSS -->
     <link rel="stylesheet" href="./assets/css/root.css">
 
     <style>
-
-    /* ==============================
-       GLOBAL
-    ============================== */
-
-    * {
-        box-sizing: border-box;
-    }
-
-    body {
-        margin: 0;
-        font-family: var(--font-family-base);
-        background: var(--color-background);
-        color: var(--text-primary);
-        transition: var(--transition-fast);
-    }
-
-    .leaderboard-page {
-        width: 100%;
-        max-width: 1500px;
-        margin: 0 auto;
-        padding: 35px 25px 45px;
-    }
-
-    /* ==============================
-       PAGE HEADER
-    ============================== */
-
-    .leaderboard-header {
-        text-align: center;
-        margin-bottom: 35px;
-    }
-
-    .leaderboard-header h1 {
-        font-size: 32px;
-        font-weight: 800;
-        color: var(--text-primary);
-        margin: 0 0 10px;
-    }
-
-    .leaderboard-header p {
-        color: var(--text-secondary);
-        font-size: 15px;
-        margin: 0;
-    }
-
-    /* ==============================
-       TOP THREE PODIUM
-    ============================== */
-
-    .top-three {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        align-items: end;
-        gap: 25px;
-        max-width: 1100px;
-        margin: 55px auto 45px;
-    }
-
-    .top-card {
-        position: relative;
-        min-width: 0;
-        min-height: 390px;
-        padding: 35px 22px 25px;
-        text-align: center;
-
-        background: var(--bg-surface, var(--color-white));
-        border: 1px solid var(--border-strong);
-        border-radius: 35px;
-
-        box-shadow: var(--shadow-md);
-        transition: var(--transition-fast);
-
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .top-card:hover {
-        transform: translateY(-5px);
-    }
-
-    /* First Place */
-    .first-place {
-        min-height: 450px;
-        border: 3px solid #E9C94A;
-        background: var(--surface-secondary);
-        box-shadow: 0 12px 30px rgba(220, 180, 40, 0.18);
-        z-index: 2;
-    }
-
-    /* Second Place */
-    .second-place {
-        border: 2px solid #AEBBCB;
-    }
-
-    /* Third Place */
-    .third-place {
-        border: 2px solid #E8B47C;
-    }
-
-    /* Medal */
-    .rank-icon {
-        position: absolute;
-        top: -27px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 58px;
-        height: 58px;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        border-radius: 50%;
-        background: var(--bg-surface, var(--color-white));
-        box-shadow: var(--shadow-md);
-        font-size: 30px;
-    }
-
-    .first-place .rank-icon {
-        background: #F3C928;
-    }
-
-    .second-place .rank-icon {
-        background: #D7E0ED;
-    }
-
-    .third-place .rank-icon {
-        background: #F5BB7A;
-    }
-
-    /* Student Avatar */
-    .student-avatar {
-        width: 75px;
-        height: 75px;
-        border-radius: 50%;
-        object-fit: cover;
-
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        margin: 10px auto 20px;
-        background: var(--gradient-brand);
-        color: var(--text-on-brand);
-
-        font-size: 25px;
-        font-weight: 800;
-        flex-shrink: 0;
-    }
-
-    /* Position Label */
-    .position-label {
-        color: var(--text-secondary);
-        font-size: 13px;
-        font-weight: 800;
-        letter-spacing: 1px;
-        margin: 0 0 12px;
-    }
-
-    /* Student Name */
-    .top-card h3 {
-        color: var(--text-primary);
-        font-size: 20px;
-        font-weight: 800;
-        margin: 0 0 12px;
-        overflow-wrap: anywhere;
-        line-height: 1.4;
-    }
-
-    /* Department and Year */
-    .student-detail {
-        display: inline-block;
-        padding: 8px 15px;
-        border-radius: 20px;
-
-        background: var(--surface-secondary);
-        border: 1px solid var(--border-strong);
-
-        color: var(--text-secondary);
-        font-size: 12px;
-        font-weight: 600;
-        margin: 0 0 22px;
-    }
-
-    /* Points Divider */
-    .points-divider {
-        width: 75%;
-        height: 1px;
-        background: var(--border-strong);
-        margin: 0 auto 20px;
-    }
-
-    /* Points */
-    .top-card .points {
-        color: var(--color-blue-600);
-        font-size: 38px;
-        font-weight: 900;
-        line-height: 1.2;
-        margin: 0;
-    }
-
-    .first-place .points {
-        color: #C58A00;
-        font-size: 44px;
-    }
-
-    .points-label {
-        color: var(--text-secondary);
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        margin-top: 8px;
-    }
-
-    /* ==============================
-       RANKINGS TABLE SECTION
-    ============================== */
-
-    .leaderboard-table-section {
-        width: 100%;
-        background: var(--bg-surface, var(--color-white));
-        border: 1px solid var(--border-strong);
-        border-radius: 18px;
-        box-shadow: var(--shadow-md);
-        overflow: hidden;
-        margin-top: 35px;
-    }
-
-    /* Table Top Header */
-    .table-top-header {
-        min-height: 75px;
-        padding: 15px 25px;
-
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 15px;
-        flex-wrap: wrap;
-
-        border-bottom: 1px solid var(--border-strong);
-    }
-
-    .institution-info {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .institution-icon {
-        font-size: 25px;
-        color: var(--color-blue-600);
-    }
-
-    .institution-info h2 {
-        font-size: 17px;
-        font-weight: 800;
-        color: var(--text-primary);
-        margin: 0;
-    }
-
-    .institution-tag {
-        display: inline-block;
-        padding: 7px 13px;
-        border-radius: 20px;
-
-        background: var(--surface-secondary);
-        border: 1px solid var(--border-strong);
-
-        color: var(--text-secondary);
-        font-size: 12px;
-        font-weight: 700;
-    }
-
-    .participant-count {
-        color: var(--text-secondary);
-        font-size: 14px;
-        font-weight: 600;
-    }
-
-    /* ==============================
-       TABLE
-    ============================== */
-
-    .table-wrapper {
-        width: 100%;
-        overflow-x: auto;
-    }
-
-    .leaderboard-table {
-        width: 100%;
-        min-width: 700px;
-        border-collapse: collapse;
-        text-align: left;
-    }
-
-    .leaderboard-table thead {
-        background: var(--surface-secondary);
-    }
-
-    .leaderboard-table th {
-        padding: 17px 25px;
-        color: var(--text-secondary);
-        font-size: 13px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        white-space: nowrap;
-    }
-
-    .leaderboard-table td {
-        padding: 17px 25px;
-        border-bottom: 1px solid var(--border-strong);
-        color: var(--text-primary);
-        font-size: 14px;
-        vertical-align: middle;
-    }
-
-    .leaderboard-table tbody tr {
-        transition: var(--transition-fast);
-    }
-
-    .leaderboard-table tbody tr:hover {
-        background: var(--surface-secondary);
-    }
-
-    .leaderboard-table tbody tr:last-child td {
-        border-bottom: none;
-    }
-
-    /* Rank Circle */
-    .rank-number {
-        width: 45px;
-        height: 45px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-
-        border-radius: 50%;
-        background: var(--surface-secondary);
-        color: var(--text-primary);
-
-        font-size: 15px;
-        font-weight: 800;
-    }
-
-    .rank-number.rank-1 {
-        background: #F4CD36;
-        color: #493900;
-    }
-
-    .rank-number.rank-2 {
-        background: #B9C6D5;
-        color: #263444;
-    }
-
-    .rank-number.rank-3 {
-        background: #E6A15E;
-        color: #58300B;
-    }
-
-    /* Student Details */
-    .student-name-cell {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        min-width: 220px;
-    }
-
-    .student-mini-avatar {
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-
-        background: var(--gradient-brand);
-        color: var(--text-on-brand);
-        font-size: 13px;
-        font-weight: 800;
-    }
-
-    .student-name {
-        color: var(--text-primary);
-        font-size: 14px;
-        font-weight: 700;
-        overflow-wrap: anywhere;
-    }
-
-    /* Points */
-    .score {
-        color: var(--color-blue-600) !important;
-        font-weight: 800;
-        font-size: 16px !important;
-        white-space: nowrap;
-    }
-
-    /* Achievement */
-    .rank-badge {
-        display: inline-block;
-        padding: 7px 12px;
-        border-radius: 8px;
-
-        background: var(--surface-secondary);
-        border: 1px solid var(--border-strong);
-
-        color: var(--color-blue-600);
-        font-size: 12px;
-        font-weight: 700;
-        white-space: nowrap;
-    }
-
-    /* Empty Message */
-    .empty-message {
-        text-align: center;
-        padding: 35px !important;
-        color: var(--text-secondary) !important;
-        font-size: 15px !important;
-    }
-
-    /* ==============================
-       RESPONSIVE DESIGN
-    ============================== */
-
-    @media (max-width: 900px) {
-
-        .top-three {
-            gap: 15px;
+        * {
+            box-sizing: border-box;
         }
 
-        .top-card {
-            min-height: 350px;
-            padding: 30px 15px 20px;
+        body {
+            margin: 0;
+            font-family: var(--font-family-base, Arial, sans-serif);
+            background: var(--bg-surface, #f5f7fb);
+            color: var(--text-primary, #172033);
         }
 
-        .first-place {
-            min-height: 400px;
+        .leaderboard-container {
+            width: 92%;
+            max-width: 1200px;
+            margin: 35px auto;
         }
 
-        .top-card h3 {
-            font-size: 17px;
+        .leaderboard-heading {
+            text-align: center;
+            margin-bottom: 30px;
         }
 
-        .top-card .points {
-            font-size: 30px;
+        .leaderboard-heading h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            color: var(--text-primary, #172033);
         }
 
-        .first-place .points {
-            font-size: 36px;
+        .leaderboard-heading p {
+            color: var(--text-secondary, #687386);
         }
 
-        .table-top-header {
-            align-items: flex-start;
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 30px;
         }
 
-    }
-
-    @media (max-width: 600px) {
-
-        .leaderboard-page {
-            padding: 25px 12px 35px;
+        .stat-card {
+            background: var(--bg-surface, #fff);
+            padding: 22px;
+            border-radius: 12px;
+            border: 1px solid var(--border-strong, #e1e5ec);
+            text-align: center;
         }
 
-        .leaderboard-header h1 {
-            font-size: 25px;
+        .stat-card h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            color: var(--text-secondary, #687386);
         }
 
-        .leaderboard-header p {
-            font-size: 13px;
+        .stat-card p {
+            margin: 0;
+            font-size: 27px;
+            font-weight: 700;
+            color: var(--color-accent, #2563eb);
         }
 
-        .top-three {
-            grid-template-columns: 1fr;
-            gap: 35px;
-            max-width: 380px;
-            margin-top: 45px;
+        .podium-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 35px;
         }
 
-        .top-card,
-        .first-place {
-            min-height: 310px;
+        .podium-card {
+            background: var(--bg-surface, #fff);
+            border: 1px solid var(--border-strong, #e1e5ec);
+            border-radius: 14px;
+            padding: 25px 15px;
+            text-align: center;
         }
 
-        .first-place {
-            order: -1;
+        .podium-card.first {
+            border: 2px solid #eab308;
         }
 
-        .table-top-header {
-            padding: 15px;
+        .podium-medal {
+            font-size: 35px;
+            margin-bottom: 10px;
         }
 
-        .institution-info h2 {
+        .podium-card h3 {
+            margin: 8px 0;
+            font-size: 18px;
+        }
+
+        .podium-card p {
+            margin: 5px 0;
+            color: var(--text-secondary, #687386);
             font-size: 14px;
         }
 
-        .participant-count {
-            font-size: 13px;
+        .points {
+            color: var(--color-accent, #2563eb) !important;
+            font-weight: 700;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            background: var(--bg-surface, #fff);
+            border-radius: 12px;
+            border: 1px solid var(--border-strong, #e1e5ec);
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 750px;
         }
 
         .leaderboard-table th,
         .leaderboard-table td {
-            padding: 13px 15px;
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-strong, #e1e5ec);
         }
 
-    }
-
-    @media (max-width: 380px) {
-
-        .top-card h3 {
-            font-size: 16px;
+        .leaderboard-table th {
+            background: var(--color-navy-950, #0f2345);
+            color: white;
+            font-size: 14px;
         }
 
-        .top-card .points {
-            font-size: 29px;
+        .leaderboard-table td {
+            font-size: 14px;
+            color: var(--text-primary, #172033);
         }
 
-        .first-place .points {
-            font-size: 34px;
+        .leaderboard-table tr:last-child td {
+            border-bottom: none;
         }
 
-        .institution-info {
-            gap: 8px;
+        .leaderboard-table tbody tr:hover {
+            background: var(--surface-secondary, #f1f5f9);
         }
 
-        .institution-tag {
-            font-size: 11px;
+        .student-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-    }
+        .student-info img,
+        .student-initial {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
 
+        .student-initial {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-navy-950, #0f2345);
+            color: white;
+            font-weight: 700;
+        }
+
+        .student-name {
+            font-weight: 600;
+        }
+
+        .rank {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .achievement {
+            display: inline-block;
+            padding: 6px 11px;
+            border-radius: 20px;
+            background: var(--surface-secondary, #e8eef8);
+            color: var(--text-primary, #172033);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 35px;
+            color: var(--text-secondary, #687386);
+        }
+
+        @media (max-width: 700px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+
+            .podium-container {
+                grid-template-columns: 1fr;
+            }
+
+            .leaderboard-heading h1 {
+                font-size: 25px;
+            }
+        }
     </style>
-
 </head>
 
 <body>
 
 <?php include 'nav.php'; ?>
 
-<main class="leaderboard-page">
+<main class="leaderboard-container">
 
-    <!-- Page Header -->
-    <section class="leaderboard-header">
-
+    <div class="leaderboard-heading">
         <h1>🏆 Student Leaderboard</h1>
+        <p>Recognizing students who actively participate in AITAM Slack.</p>
+    </div>
 
-        <p>
-            Recognizing the top contributors of the
-            AITAM Slack community.
-        </p>
+    <!-- Statistics -->
+    <section class="stats-container">
+
+        <div class="stat-card">
+            <h3>Total Students</h3>
+            <p><?= e($totalStudents) ?></p>
+        </div>
+
+        <div class="stat-card">
+            <h3>Total Questions</h3>
+            <p><?= e($totalQuestions) ?></p>
+        </div>
+
+        <div class="stat-card">
+            <h3>Total Answers</h3>
+            <p><?= e($totalAnswers) ?></p>
+        </div>
 
     </section>
-
 
     <!-- Top Three Students -->
-    <?php if (count($students) > 0): ?>
+    <?php if (!empty($topThree)): ?>
 
-    <section class="top-three">
-
-        <?php foreach ($podium as $item): ?>
+        <section class="podium-container">
 
             <?php
-                $student = $item['student'];
-                $initials = getInitials($student['name']);
+            // Display second, first, third
+            $podiumOrder = [];
+
+            if (isset($topThree[1])) {
+                $podiumOrder[] = [2, $topThree[1]];
+            }
+
+            $podiumOrder[] = [1, $topThree[0]];
+
+            if (isset($topThree[2])) {
+                $podiumOrder[] = [3, $topThree[2]];
+            }
             ?>
 
-            <div class="top-card <?php echo $item['class']; ?>">
+            <?php foreach ($podiumOrder as [$rank, $student]): ?>
 
-                <div class="rank-icon">
-                    <?php echo $item['medal']; ?>
-                </div>
+                <div class="podium-card <?= $rank == 1 ? 'first' : '' ?>">
 
-                <?php if (!empty($student['profile_image'])): ?>
-
-                    <img
-                        src="<?php echo htmlspecialchars($student['profile_image']); ?>"
-                        alt="<?php echo htmlspecialchars($student['name']); ?>"
-                        class="student-avatar"
-                    >
-
-                <?php else: ?>
-
-                    <div class="student-avatar">
-                        <?php echo htmlspecialchars($initials); ?>
+                    <div class="podium-medal">
+                        <?= getRank($rank) ?>
                     </div>
 
-                <?php endif; ?>
+                    <h3><?= e($student['name']) ?></h3>
 
-                <p class="position-label">
-                    <?php echo $item['label']; ?>
-                </p>
+                    <p>
+                        <?= e($student['department'] ?? 'N/A') ?>
+                    </p>
 
-                <h3>
-                    <?php echo htmlspecialchars($student['name']); ?>
-                </h3>
+                    <p>
+                        Questions:
+                        <?= e($student['questions_asked']) ?>
+                    </p>
 
-                <div class="student-detail">
-                    <?php echo htmlspecialchars($student['department'] ?? 'N/A'); ?>
-                    -
-                    <?php echo htmlspecialchars($student['year'] ?? 'N/A'); ?>
+                    <p>
+                        Answers:
+                        <?= e($student['answers_given']) ?>
+                    </p>
+
+                    <p class="points">
+                        <?= e($student['total_points']) ?> Points
+                    </p>
+
                 </div>
 
-                <div class="points-divider"></div>
+            <?php endforeach; ?>
 
-                <div class="points">
-                    <?php echo formatPoints($student['total_points']); ?>
-                </div>
-
-                <div class="points-label">POINTS</div>
-
-            </div>
-
-        <?php endforeach; ?>
-
-    </section>
+        </section>
 
     <?php endif; ?>
 
+    <!-- Dynamic Leaderboard Table -->
+    <section class="table-wrapper">
 
-    <!-- Overall Rankings -->
-    <section class="leaderboard-table-section">
+        <table class="leaderboard-table">
 
-        <!-- Table Header -->
-        <div class="table-top-header">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Student</th>
+                    <th>Department</th>
+                    <th>Year</th>
+                    <th>Questions Asked</th>
+                    <th>Answers Given</th>
+                    <th>Points</th>
+                    <th>Achievement</th>
+                </tr>
+            </thead>
 
-            <div class="institution-info">
+            <tbody>
 
-                <span class="institution-icon">▥</span>
+                <?php if (!empty($students)): ?>
 
-                <h2>
-                    Aditya Institute of Technology and Management
-                </h2>
+                    <?php foreach ($students as $index => $student): ?>
 
-                <span class="institution-tag">
-                    Institution
-                </span>
+                        <?php
+                        $rank = $index + 1;
 
-                <span class="institution-tag">
-                    Student Rankings
-                </span>
+                        if ($rank == 1) {
+                            $achievement = "Top Contributor";
+                        } elseif ($rank == 2) {
+                            $achievement = "Excellent";
+                        } elseif ($rank == 3) {
+                            $achievement = "Outstanding";
+                        } else {
+                            $achievement = "Active Member";
+                        }
 
-            </div>
-
-            <div class="participant-count">
-                <?php echo count($students); ?> participants
-            </div>
-
-        </div>
-
-
-        <!-- Rankings Table -->
-        <div class="table-wrapper">
-
-            <table class="leaderboard-table">
-
-                <thead>
-
-                    <tr>
-                        <th>Rank</th>
-                        <th>Student</th>
-                        <th>Department</th>
-                        <th>Points</th>
-                        <th>Achievement</th>
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                    <?php if (count($students) > 0): ?>
-
-                        <?php foreach ($students as $index => $student): ?>
-
-                            <?php
-
-                                $rank = $index + 1;
-                                $initials = getInitials($student['name']);
-
-                                if ($rank == 1) {
-                                    $achievement = "Gold";
-                                } elseif ($rank == 2) {
-                                    $achievement = "Silver";
-                                } elseif ($rank == 3) {
-                                    $achievement = "Bronze";
-                                } elseif ($rank <= 10) {
-                                    $achievement = "Top Contributor";
-                                } else {
-                                    $achievement = "Active Member";
-                                }
-
-                            ?>
-
-                            <tr>
-
-                                <!-- Rank -->
-                                <td>
-                                    <span class="rank-number rank-<?php echo $rank <= 3 ? $rank : 'other'; ?>">
-                                        <?php echo $rank; ?>
-                                    </span>
-                                </td>
-
-                                <!-- Student -->
-                                <td>
-
-                                    <div class="student-name-cell">
-
-                                        <?php if (!empty($student['profile_image'])): ?>
-
-                                            <img
-                                                src="<?php echo htmlspecialchars($student['profile_image']); ?>"
-                                                alt="<?php echo htmlspecialchars($student['name']); ?>"
-                                                class="student-mini-avatar"
-                                            >
-
-                                        <?php else: ?>
-
-                                            <span class="student-mini-avatar">
-                                                <?php echo htmlspecialchars($initials); ?>
-                                            </span>
-
-                                        <?php endif; ?>
-
-                                        <span class="student-name">
-                                            <?php echo htmlspecialchars($student['name']); ?>
-                                        </span>
-
-                                    </div>
-
-                                </td>
-
-                                <!-- Department -->
-                                <td>
-                                    <?php echo htmlspecialchars($student['department'] ?? 'N/A'); ?>
-                                </td>
-
-                                <!-- Points -->
-                                <td class="score">
-                                    <?php echo formatPoints($student['total_points']); ?>
-                                    <span style="font-size:12px;font-weight:500;color:var(--text-secondary);">
-                                        pts
-                                    </span>
-                                </td>
-
-                                <!-- Achievement -->
-                                <td>
-                                    <span class="rank-badge">
-                                        <?php echo $achievement; ?>
-                                    </span>
-                                </td>
-
-                            </tr>
-
-                        <?php endforeach; ?>
-
-                    <?php else: ?>
+                        $initial = strtoupper(
+                            substr($student['name'] ?? 'S', 0, 1)
+                        );
+                        ?>
 
                         <tr>
-                            <td colspan="5" class="empty-message">
-                                No student records available.
+
+                            <td class="rank">
+                                <?= getRank($rank) ?>
                             </td>
+
+                            <td>
+                                <div class="student-info">
+
+                                    <?php if (!empty($student['profile_image'])): ?>
+
+                                        <img
+                                            src="<?= e($student['profile_image']) ?>"
+                                            alt="Student profile">
+
+                                    <?php else: ?>
+
+                                        <div class="student-initial">
+                                            <?= e($initial) ?>
+                                        </div>
+
+                                    <?php endif; ?>
+
+                                    <span class="student-name">
+                                        <?= e($student['name']) ?>
+                                    </span>
+
+                                </div>
+                            </td>
+
+                            <td>
+                                <?= e($student['department'] ?? 'N/A') ?>
+                            </td>
+
+                            <td>
+                                <?= e($student['year'] ?? 'N/A') ?>
+                            </td>
+
+                            <td>
+                                <?= e($student['questions_asked']) ?>
+                            </td>
+
+                            <td>
+                                <?= e($student['answers_given']) ?>
+                            </td>
+
+                            <td>
+                                <strong>
+                                    <?= e($student['total_points']) ?>
+                                </strong>
+                            </td>
+
+                            <td>
+                                <span class="achievement">
+                                    <?= e($achievement) ?>
+                                </span>
+                            </td>
+
                         </tr>
 
-                    <?php endif; ?>
+                    <?php endforeach; ?>
 
-                </tbody>
+                <?php else: ?>
 
-            </table>
+                    <tr>
+                        <td colspan="8" class="empty-message">
+                            No student records found.
+                        </td>
+                    </tr>
 
-        </div>
+                <?php endif; ?>
+
+            </tbody>
+
+        </table>
 
     </section>
 

@@ -1,4 +1,8 @@
 <?php
+require_once __DIR__ . '/admin/includes/platform-settings.php';
+$currentPage = basename(
+    parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php'
+);
 if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
     session_start();
 }
@@ -26,17 +30,33 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
 
         <!-- LOGO -->
         <a href="index.php" class="cc-brand">
-            <div class="cc-logo"><img src="assets/images/logo.png" alt="AITAM College Logo" width="44" height="44"></div>
+
+            <div class="cc-logo">
+                <img src="https://adityatekkali.edu.in/ahlaad2k26/aitamsinglelogo.png"
+                    alt="AITAM College Logo"
+                    width="44"
+                    height="44">
+            </div>
 
             <div class="cc-brand-text">
-                <h2>AITAM SLACK</h2>
-                <span>AITAM COMMUNITY</span>
+
+                <h2>
+                    <?= htmlspecialchars($platformSettings['platform_name'], ENT_QUOTES, 'UTF-8') ?>
+                </h2>
+
+                <span>
+                    <?= htmlspecialchars($platformSettings['platform_description'], ENT_QUOTES, 'UTF-8') ?>
+                </span>
+
             </div>
+
         </a>
 
+        
         <!-- DESKTOP MENU -->
         <div class="cc-nav-menu" id="ccNavMenu">
 
+<<<<<<< HEAD
 
             <a href="index.php" class="cc-nav-link active">Home</a>
             <a href="ask_question.php" class="cc-nav-link">Ask Question</a>
@@ -48,6 +68,17 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
             <a href="about.php" class="cc-nav-link">About</a>
             <a href="alumni.php" class="cc-nav-link">Alumni</a>
 
+=======
+          <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
+           <a href="ask-question.php" class="cc-nav-link<?= $currentPage === 'ask-question.php' ? ' active' : '' ?>"<?= $currentPage === 'ask-question.php' ? ' aria-current="page"' : '' ?>>Ask Question</a>
+            <a href="question-history.php" class="cc-nav-link<?= $currentPage === 'question-history.php' ? ' active' : '' ?>"<?= $currentPage === 'question-history.php' ? ' aria-current="page"' : '' ?>>Questions</a>
+            <a href="answer.php" class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"<?= $currentPage === 'answer.php' ? ' aria-current="page"' : '' ?>>Answer</a>
+            <a href="leaderboard.php" class="cc-nav-link<?= $currentPage === 'leaderboard.php' ? ' active' : '' ?>"<?= $currentPage === 'leaderboard.php' ? ' aria-current="page"' : '' ?>>Leaderboard</a>
+            <a href="report.php" class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"<?= $currentPage === 'report.php' ? ' aria-current="page"' : '' ?>>Report</a>
+            <a href="index.php#events" class="cc-nav-link">Events</a>
+            <a href="about.php" class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"<?= $currentPage === 'about.php' ? ' aria-current="page"' : '' ?>>About</a>
+
+>>>>>>> 3239fde1aec6c4b90ad2937ad649bfbf4a8de075
             <!-- MOBILE ACTIONS -->
             <div class="cc-mobile-actions">
                 <?php if (!$is_logged_in): ?>
@@ -108,7 +139,7 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
                         <span class="nav-chevron" aria-hidden="true">⌄</span>
                     </button>
                     <div class="nav-profile-menu" role="menu">
-                        <a class="nav-dropdown-item" role="menuitem" href="userprofile.php">My Profile</a>
+                        <a class="nav-dropdown-item" role="menuitem" href="profile.php">My Profile</a>
                         <a class="nav-dropdown-item" role="menuitem" href="questions-history.php">Questions History</a>
                         <?php if (($_SESSION['role'] ?? null) === 'admin'): ?>
                             <a class="nav-dropdown-item" role="menuitem" href="admin.php">Admin Panel</a>
