@@ -56,24 +56,8 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
         <!-- DESKTOP MENU -->
         <div class="cc-nav-menu" id="ccNavMenu">
 
-<<<<<<< HEAD
-            <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
-=======
-<<<<<<< HEAD
 
-            <a href="index.php" class="cc-nav-link active">Home</a>
-            <a href="ask_question.php" class="cc-nav-link">Ask Question</a>
-            <a href="community.php" class="cc-nav-link">Community</a>
-            <a href="questions.php" class="cc-nav-link">Questions</a>
-              <a href="alumni.php" class="cc-nav-link">Answer</a>
-            <a href="events.php" class="cc-nav-link">Events</a>
-
-            <a href="about.php" class="cc-nav-link">About</a>
-            <a href="alumni.php" class="cc-nav-link">Alumni</a>
-
-=======
           <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
->>>>>>> c88d56bc018668cab5a37f2d4c8a448f34934d0a
            <a href="ask-question.php" class="cc-nav-link<?= $currentPage === 'ask-question.php' ? ' active' : '' ?>"<?= $currentPage === 'ask-question.php' ? ' aria-current="page"' : '' ?>>Ask Question</a>
             <a href="question-history.php" class="cc-nav-link<?= $currentPage === 'question-history.php' ? ' active' : '' ?>"<?= $currentPage === 'question-history.php' ? ' aria-current="page"' : '' ?>>Questions</a>
             <a href="answer.php" class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"<?= $currentPage === 'answer.php' ? ' aria-current="page"' : '' ?>>Answer</a>
@@ -82,7 +66,6 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
             <a href="index.php#events" class="cc-nav-link">Events</a>
             <a href="about.php" class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"<?= $currentPage === 'about.php' ? ' aria-current="page"' : '' ?>>About</a>
 
->>>>>>> 3239fde1aec6c4b90ad2937ad649bfbf4a8de075
             <!-- MOBILE ACTIONS -->
             <div class="cc-mobile-actions">
                 <?php if (!$is_logged_in): ?>

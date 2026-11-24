@@ -102,15 +102,7 @@ $supportEmail = $platformSettings['support_email'] ?? '';
 
         <details class="footer-developer">
             <summary>Developed By <strong>CSM Dept</strong></summary>
-            <ul class="footer-student-menu" aria-label="Student developers">
-                <li>YAJNESWARARAO</li>
-                <li>PURNACHNADRARAO</li>
-                <li>LOKESH</li>
-                <li>BHARGAVI</li>
-                <li>LEKHANAPRIYA</li>
-                <li>JAHNAVI</li>
-                <li>POOJITHA</li>
-            </ul>
+           <button><a href="developers.php">View All Developers</a></button>
         </details>
 
         <p>
