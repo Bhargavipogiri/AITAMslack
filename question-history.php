@@ -1,59 +1,29 @@
+
 <?php
-<<<<<<< HEAD
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-/* Database connection */
-require_once 'lesder-db.php';
-
-/* Escape output safely */
-function e($value) {
-    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
-}
-
-/* Fetch question history */
-=======
 require_once __DIR__ . '/includes/bootstrap.php';
 
-require_once 'lesder-db.php';
-
->>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
 $questions = [];
 $databaseError = '';
-$successMessage = $_SESSION['flash']['success'] ?? '';
-unset($_SESSION['flash']['success']);
+$successMessage = '';
 
-try {
-<<<<<<< HEAD
+/* =====================================
+   SUCCESS MESSAGE
+===================================== */
 
-    $sql = "SELECT
-                id,
-                user_id,
-                question_title,
-                question_description,
-                category,
-                status,
-                created_at
-            FROM questions
-            ORDER BY created_at DESC";
-
-    $stmt = $conn->prepare($sql);
-    $stmt->execute();
-
-    $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $ex) {
-
-    error_log("Question History Error: " . $ex->getMessage());
-
-    $databaseError = 'Unable to load question history. Please try again later.';
+if (!empty($_SESSION['flash']['success'])) {
+    $successMessage = $_SESSION['flash']['success'];
+    unset($_SESSION['flash']['success']);
 }
 
-=======
-    $stmt = db()->query(
-        'SELECT
+/* =====================================
+   FETCH QUESTIONS
+===================================== */
+
+try {
+
+    $sql = "
+        SELECT
             q.id,
             q.user_id,
             q.question_title,
@@ -61,17 +31,34 @@ try {
             q.category,
             q.status,
             q.created_at,
-            COALESCE(NULLIF(u.full_name, \'\'), CONCAT(\'User #\', q.user_id)) AS user_name
-         FROM questions q
-         LEFT JOIN users u ON u.user_id = q.user_id
-         ORDER BY q.created_at DESC, q.id DESC'
-    );
+
+            COALESCE(
+                NULLIF(u.full_name, ''),
+                CONCAT('User #', q.user_id)
+            ) AS user_name
+
+        FROM questions q
+
+        LEFT JOIN users u
+            ON u.user_id = q.user_id
+
+        ORDER BY
+            q.created_at DESC,
+            q.id DESC
+    ";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute();
+
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $exception) {
-    error_log('Question history load failed: ' . $exception->getMessage());
-    $databaseError = 'Unable to load question history. Please try again later.';
+
+} catch (PDOException $error) {
+
+    error_log("Question History Error: " . $error->getMessage());
+
+    $databaseError = 'Unable to load questions. Please try again later.';
 }
->>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
+
 ?>
 
 <!DOCTYPE html>
@@ -107,7 +94,7 @@ body {
 }
 
 /* =====================================
-   HISTORY CONTAINER - LIGHT THEME
+   HISTORY CONTAINER
 ===================================== */
 
 .history-container {
@@ -158,41 +145,32 @@ body[data-theme="dark"] .history-container {
 
 .history-header h1 {
     margin: 0 0 10px;
-
     color: var(--history-heading);
-
     font-size: 32px;
     font-weight: 800;
 }
 
-<<<<<<< HEAD
 .history-header p {
     color: var(--history-muted);
-=======
-        .success-message {
-            margin-bottom: 18px;
-            padding: 14px 18px;
-            border: 1px solid #198754;
-            border-radius: 8px;
-            background: #d1e7dd;
-            color: #0f5132;
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-top: 25px;
-            padding: 10px 18px;
-            border-radius: 8px;
-            background: var(--color-blue-600);
-            color: var(--text-on-brand);
-            text-decoration: none;
-        }
->>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
-
     font-size: 16px;
     line-height: 1.7;
-
     margin: 0;
+}
+
+/* =====================================
+   SUCCESS MESSAGE
+===================================== */
+
+.success-message {
+
+    margin-bottom: 18px;
+    padding: 14px 18px;
+
+    border: 1px solid #198754;
+    border-radius: 8px;
+
+    background: #d1e7dd;
+    color: #0f5132;
 }
 
 /* =====================================
@@ -241,9 +219,10 @@ body[data-theme="dark"] .history-container {
 
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
 
-    transition: background 0.3s ease,
-                border 0.3s ease,
-                transform 0.2s ease;
+    transition:
+        background 0.3s ease,
+        border 0.3s ease,
+        transform 0.2s ease;
 }
 
 html[data-theme="dark"] .question-card,
@@ -336,28 +315,20 @@ body[data-theme="dark"] .question-card {
     white-space: nowrap;
 }
 
-/* Pending */
-
 .pending {
     background: #fff3cd;
     color: #856404;
 }
-
-/* Answered */
 
 .answered {
     background: #d4edda;
     color: #155724;
 }
 
-/* Closed */
-
 .closed {
     background: #e2e3e5;
     color: #383d41;
 }
-
-/* Other statuses */
 
 .status:not(.pending):not(.answered):not(.closed) {
     background: var(--history-soft);
@@ -372,7 +343,6 @@ body[data-theme="dark"] .question-card {
 .question-actions {
     margin-top: 22px;
     padding-top: 18px;
-
     border-top: 1px solid var(--history-border);
 }
 
@@ -569,25 +539,16 @@ body[data-theme="dark"] .question-card {
 
     </header>
 
-
-    <!-- TOTAL QUESTIONS -->
-    <div class="history-count">
-
-        Total Questions: <?= count($questions) ?>
-
-    </div>
-
-<<<<<<< HEAD
-
-    <!-- DATABASE ERROR -->
-=======
+    <!-- SUCCESS MESSAGE -->
     <?php if ($successMessage !== ''): ?>
+
         <div class="success-message" role="status">
             <?= e($successMessage) ?>
         </div>
+
     <?php endif; ?>
 
->>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
+    <!-- DATABASE ERROR -->
     <?php if ($databaseError !== ''): ?>
 
         <div class="database-error" role="alert">
@@ -596,23 +557,29 @@ body[data-theme="dark"] .question-card {
 
     <?php endif; ?>
 
+    <!-- TOTAL QUESTIONS -->
+    <div class="history-count">
+
+        Total Questions: <?= count($questions) ?>
+
+    </div>
 
     <!-- QUESTION LIST -->
     <section class="question-list">
 
-        <?php if (count($questions) > 0): ?>
+        <?php if (!empty($questions)): ?>
 
             <?php foreach ($questions as $question): ?>
 
                 <?php
 
-                    $statusClass = strtolower(
-                        trim((string)($question['status'] ?? ''))
-                    );
+                $statusClass = strtolower(
+                    trim((string)($question['status'] ?? ''))
+                );
 
-                    $createdAt = strtotime(
-                        (string)($question['created_at'] ?? '')
-                    );
+                $createdAt = strtotime(
+                    (string)($question['created_at'] ?? '')
+                );
 
                 ?>
 
@@ -631,14 +598,12 @@ body[data-theme="dark"] .question-card {
 
                     </div>
 
-
                     <!-- QUESTION DESCRIPTION -->
                     <p class="question-description">
 
                         <?= nl2br(e($question['question_description'])) ?>
 
                     </p>
-
 
                     <!-- QUESTION DETAILS -->
                     <div class="question-meta">
@@ -668,12 +633,11 @@ body[data-theme="dark"] .question-card {
 
                     </div>
 
-
                     <!-- ANSWER BUTTON -->
                     <div class="question-actions">
 
                         <a
-                            href="answer.php?question_id=<?= e($question['id']) ?>"
+                            href="answer.php?question_id=<?= urlencode((string)$question['id']) ?>"
                             class="answer-btn"
                         >
                             Answer →
@@ -701,7 +665,6 @@ body[data-theme="dark"] .question-card {
         <?php endif; ?>
 
     </section>
-
 
     <!-- BACK TO DASHBOARD -->
     <a href="index.php" class="back-link">

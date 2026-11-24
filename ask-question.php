@@ -23,26 +23,30 @@ $textLength = static function (string $value): int {
         : strlen($value);
 };
 
-// Load categories
-$categoryQuery = db()->query(
-    'SELECT id, name FROM categories ORDER BY name ASC'
-);
+/* =====================================
+   LOAD PREDEFINED CATEGORIES
+===================================== */
 
-$categories = $categoryQuery->fetchAll(PDO::FETCH_ASSOC);
+$categories = [
+    'Programming',
+    'Academics',
+    'Projects',
+    'Placements',
+    'Technical',
+    'General'
+];
 
-// Process question submission
+/* =====================================
+   PROCESS QUESTION SUBMISSION
+===================================== */
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     verify_csrf();
 
     $old['title'] = trim((string)($_POST['title'] ?? ''));
     $old['body'] = trim((string)($_POST['body'] ?? ''));
-    $old['category_id'] = (string)($_POST['category_id'] ?? '');
-
-    $categoryId = filter_var(
-        $old['category_id'],
-        FILTER_VALIDATE_INT
-    );
+    $old['category_id'] = trim((string)($_POST['category_id'] ?? ''));
 
     $selectedCategory = '';
 
@@ -63,26 +67,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Validate category
-    if ($categoryId === false || $categoryId < 1) {
+    if (
+        $old['category_id'] === '' ||
+        !in_array($old['category_id'], $categories, true)
+    ) {
 
         $errors[] = 'Please select a valid category.';
 
     } else {
 
-        $check = db()->prepare(
-            'SELECT name FROM categories WHERE id = ? LIMIT 1'
-        );
+        $selectedCategory = $old['category_id'];
 
-        $check->execute([$categoryId]);
-
-        $selectedCategory = $check->fetchColumn();
-
-        if (!$selectedCategory) {
-            $errors[] = 'The selected category is no longer available.';
-        }
     }
 
-    // Run Phase 16 checks
+    /* =====================================
+       RUN PHASE 16 CHECKS
+    ===================================== */
+
     if (!$errors) {
 
         $diagnosticId = cc_phase16_diagnostic_id();
@@ -123,7 +124,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $decision
         );
 
-        // Handle rejected or unavailable checks
+        /* =====================================
+           HANDLE REJECTED OR UNAVAILABLE CHECKS
+        ===================================== */
+
         if (!$canPersist) {
 
             $checksUnavailable =
@@ -152,6 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
 
                 $reasonCode = 'quality_uncertain';
+
             }
 
             cc_phase16_log_submission_decision(
@@ -201,19 +206,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'error',
                     'We could not confidently verify this question. Please add more context and try again.'
                 );
+
             }
 
             redirect('ask-question.php');
         }
 
-        // Save the approved question
+        /* =====================================
+           SAVE APPROVED QUESTION
+        ===================================== */
+
         $connection = db();
 
         try {
 
             $connection->beginTransaction();
 
-            // Uses your existing questions table structure
+            // Insert into existing questions table
             $insert = $connection->prepare(
                 'INSERT INTO questions
                 (
@@ -325,7 +334,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get flash messages
+/* =====================================
+   GET FLASH MESSAGES
+===================================== */
+
 $successMessage = $_SESSION['flash']['success'] ?? '';
 $errorMessage = $_SESSION['flash']['error'] ?? '';
 
@@ -333,6 +345,7 @@ unset($_SESSION['flash']['success']);
 unset($_SESSION['flash']['error']);
 
 require __DIR__ . '/includes/header.php';
+
 ?>
 
 <link rel="stylesheet" href="assets/css/ask-question.css">
@@ -340,9 +353,12 @@ require __DIR__ . '/includes/header.php';
 <main class="cc-ask-page">
 
     <header class="cc-ask-hero">
+
         <div>
             <span class="cc-eyebrow">COLLEGE CONNECT COMMUNITY</span>
+
             <h1>Ask a question</h1>
+
             <p>
                 Share your doubt with students, alumni and faculty.
                 Add enough detail so the community can help.
@@ -350,6 +366,7 @@ require __DIR__ . '/includes/header.php';
         </div>
 
         <div class="cc-hero-mark" aria-hidden="true">?</div>
+
     </header>
 
     <div class="cc-ask-layout">
@@ -357,27 +374,39 @@ require __DIR__ . '/includes/header.php';
         <section class="cc-ask-main">
 
             <?php if ($successMessage !== ''): ?>
+
                 <div class="cc-alert" role="status">
                     <?= e($successMessage) ?>
                 </div>
+
             <?php endif; ?>
 
             <?php if ($errorMessage !== ''): ?>
+
                 <div class="cc-alert" role="alert">
                     <?= e($errorMessage) ?>
                 </div>
+
             <?php endif; ?>
 
             <?php if ($errors): ?>
+
                 <div class="cc-alert" role="alert">
+
                     <strong>We couldn't submit your question.</strong>
 
                     <ul>
+
                         <?php foreach ($errors as $error): ?>
+
                             <li><?= e($error) ?></li>
+
                         <?php endforeach; ?>
+
                     </ul>
+
                 </div>
+
             <?php endif; ?>
 
             <form
@@ -391,17 +420,25 @@ require __DIR__ . '/includes/header.php';
                 <?= csrf_field() ?>
 
                 <div class="cc-card-heading">
+
                     <div>
+
                         <span class="cc-step-label">QUESTION DETAILS</span>
+
                         <h2>What would you like to know?</h2>
+
                         <p>
                             Use a clear title and explain the problem
                             in your own words.
                         </p>
+
                     </div>
 
                     <span class="cc-ai-badge">✦ AI checked</span>
+
                 </div>
+
+                <!-- QUESTION TITLE -->
 
                 <div class="cc-field">
 
@@ -421,11 +458,16 @@ require __DIR__ . '/includes/header.php';
                     >
 
                     <div class="cc-meta">
+
                         <span>Make it clear and specific.</span>
+
                         <span id="titleCounter">0/220</span>
+
                     </div>
 
                 </div>
+
+                <!-- QUESTION CATEGORY -->
 
                 <div class="cc-field">
 
@@ -438,43 +480,50 @@ require __DIR__ . '/includes/header.php';
                         name="category_id"
                         required
                     >
+
                         <option value="">
                             Choose the most relevant category
                         </option>
 
                         <?php foreach ($categories as $category): ?>
+
                             <option
-                                value="<?= (int)$category['id'] ?>"
-                                <?= (string)$category['id'] === $old['category_id'] ? 'selected' : '' ?>
+                                value="<?= e($category) ?>"
+                                <?= $category === $old['category_id'] ? 'selected' : '' ?>
                             >
-                                <?= e($category['name']) ?>
+                                <?= e($category) ?>
                             </option>
+
                         <?php endforeach; ?>
 
                     </select>
 
-                    <small>
-                        Categories are loaded from your existing categories table.
-                    </small>
-
                 </div>
+
+                <!-- QUESTION DESCRIPTION -->
 
                 <div class="cc-field">
 
                     <div class="cc-label-row">
+
                         <label for="questionBody">
                             Question details <b>*</b>
                         </label>
 
                         <small>Be respectful · Add context</small>
+
                     </div>
 
                     <div class="cc-editor">
 
                         <div class="cc-editor-tips">
+
                             <span>Describe the problem</span>
+
                             <span>Add what you tried</span>
+
                             <span>Include relevant details</span>
+
                         </div>
 
                         <textarea
@@ -492,39 +541,52 @@ Which subject, technology, department, or process is involved?"
                         ><?= e($old['body']) ?></textarea>
 
                         <div class="cc-meta cc-editor-meta">
+
                             <span>
                                 Do not include passwords, OTPs,
                                 or private personal information.
                             </span>
 
                             <span id="bodyCounter">0/10,000</span>
+
                         </div>
 
                     </div>
 
                 </div>
 
+                <!-- FORM ACTIONS -->
+
                 <div class="cc-form-actions">
+
                     <a href="question-history.php">Cancel</a>
 
                     <button
                         type="submit"
                         id="submitQuestionButton"
                     >
+
                         <span>Submit question</span>
+
                         <span>↗</span>
+
                     </button>
+
                 </div>
 
                 <p class="cc-submit-note">
+
                     Your question is checked before it is saved.
                     If the required checks fail or are unavailable,
                     it will not be saved.
+
                 </p>
 
             </form>
 
         </section>
+
+        <!-- SIDEBAR -->
 
         <aside class="cc-ask-sidebar">
 
@@ -535,37 +597,63 @@ Which subject, technology, department, or process is involved?"
                 <h3>How to ask a great question</h3>
 
                 <ol>
+
                     <li>
+
                         <b>01</b>
+
                         <div>
+
                             <strong>Use a specific title</strong>
+
                             <small>Summarize your exact doubt.</small>
+
                         </div>
+
                     </li>
 
                     <li>
+
                         <b>02</b>
+
                         <div>
+
                             <strong>Provide context</strong>
+
                             <small>Include the subject or situation.</small>
+
                         </div>
+
                     </li>
 
                     <li>
+
                         <b>03</b>
+
                         <div>
+
                             <strong>Show your effort</strong>
+
                             <small>Mention what you already tried.</small>
+
                         </div>
+
                     </li>
 
                     <li>
+
                         <b>04</b>
+
                         <div>
+
                             <strong>Keep it respectful</strong>
+
                             <small>Help everyone contribute.</small>
+
                         </div>
+
                     </li>
+
                 </ol>
 
             </article>
@@ -573,8 +661,11 @@ Which subject, technology, department, or process is involved?"
             <article class="cc-side-card cc-ai-card">
 
                 <div class="cc-ai-heading">
+
                     <i></i>
+
                     <strong>AI moderation enabled</strong>
+
                 </div>
 
                 <p>
@@ -583,7 +674,9 @@ Which subject, technology, department, or process is involved?"
                 </p>
 
                 <span>✓ Safety screening</span>
+
                 <span>✓ Question quality screening</span>
+
                 <span>✓ Server-side API processing</span>
 
             </article>

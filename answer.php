@@ -1,15 +1,12 @@
+
 <?php
-<<<<<<< HEAD
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
-=======
-session_start();
->>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
 
-/* Correct database filename */
-require_once 'lesder-db.php';
+/* Database connection */
+require_once __DIR__ . '/lesder-db.php';
 
 /* Escape output */
 function e($value) {
@@ -32,16 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $answerText = trim($_POST['answer_text'] ?? '');
 
     if (!$questionId || $answerText === '') {
-
-        $redirectId = $questionId ? $questionId : '';
-
-        header(
-            "Location: answer.php" .
-            ($redirectId
-                ? "?question_id=" . $redirectId . "&error=invalid"
-                : "?error=invalid")
-        );
-
+        header("Location: answer.php?error=invalid");
         exit();
     }
 
@@ -55,12 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $check->execute(['id' => $questionId]);
 
         if (!$check->fetch(PDO::FETCH_ASSOC)) {
-
-            header(
-                "Location: answer.php?question_id=" .
-                $questionId . "&error=notfound"
-            );
-
+            header("Location: answer.php?question_id=" . $questionId . "&error=notfound");
             exit();
         }
 
@@ -71,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             !empty($_SESSION['user_id']) &&
             filter_var($_SESSION['user_id'], FILTER_VALIDATE_INT)
         ) {
-            $userId = (int)$_SESSION['user_id'];
+            $userId = (int) $_SESSION['user_id'];
         }
 
         /* Insert answer */
@@ -97,23 +80,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $update->execute(['id' => $questionId]);
 
-        /* Redirect after successful submission */
-        header(
-            "Location: answer.php?question_id=" .
-            $questionId . "&success=1"
-        );
-
+        header("Location: answer.php?question_id=" . $questionId . "&success=1");
         exit();
 
     } catch (PDOException $ex) {
 
         error_log("Answer Submission Error: " . $ex->getMessage());
 
-        header(
-            "Location: answer.php?question_id=" .
-            $questionId . "&error=database"
-        );
-
+        header("Location: answer.php?question_id=" . $questionId . "&error=database");
         exit();
     }
 }
@@ -145,10 +119,7 @@ try {
                 WHERE id = :id";
 
         $stmt = $conn->prepare($sql);
-
-        $stmt->execute([
-            'id' => $selectedQuestionId
-        ]);
+        $stmt->execute(['id' => $selectedQuestionId]);
 
     } else {
 
@@ -162,13 +133,11 @@ try {
                 ORDER BY created_at DESC";
 
         $stmt = $conn->prepare($sql);
-
         $stmt->execute();
     }
 
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    /* Fetch answers */
     $answerQuery = $conn->prepare(
         "SELECT
             id,
@@ -185,11 +154,10 @@ try {
     error_log("Question Fetch Error: " . $ex->getMessage());
 
     $databaseError = 'Unable to load questions and answers.';
-
     $answerQuery = null;
 }
-
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

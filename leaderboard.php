@@ -1,10 +1,8 @@
+
 <?php
-<<<<<<< HEAD
-=======
 session_start();
 
->>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
-require_once 'lesder-db.php';
+require_once __DIR__ . '/lesder-db.php';
 
 /* Escape output safely */
 function e($value) {
@@ -12,10 +10,6 @@ function e($value) {
 }
 
 try {
-    /*
-     * Count questions and answers separately.
-     * Points = number of questions asked.
-     */
     $sql = "
         SELECT
             s.id,
@@ -54,8 +48,8 @@ try {
 
     $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-} catch (PDOException $e) {
-    error_log($e->getMessage());
+} catch (PDOException $error) {
+    error_log($error->getMessage());
     die("Unable to load leaderboard. Please try again later.");
 }
 
@@ -73,6 +67,7 @@ function getRank($rank) {
     return $rank;
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

@@ -24,13 +24,51 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
 ?>
 <!-- College Connect Navbar -->
 
-<nav class="cc-navbar">
 
+<?php
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    session_start();
+}
+
+require_once __DIR__ . '/admin/includes/platform-settings.php';
+
+$currentPage = basename(
+    parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: 'index.php'
+);
+
+$is_logged_in = isset($_SESSION['user_id']);
+
+$profileName = trim((string)($_SESSION['full_name'] ?? 'User'));
+$profileRole = (string)($_SESSION['role'] ?? '');
+
+if (strcasecmp(trim($profileRole), 'faculty') === 0) {
+    $profileName = trim(
+        preg_replace('/^Sri\s+/iu', '', $profileName) ?? $profileName
+    );
+}
+
+$profileImage = $_SESSION['profile_image'] ?? '';
+$profileImagePath = is_string($profileImage) ? trim($profileImage) : '';
+
+$profileFilePath = $profileImagePath !== ''
+    ? ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $profileImagePath), DIRECTORY_SEPARATOR)
+    : '';
+
+$hasProfileImage = $profileFilePath !== ''
+    && is_file(__DIR__ . DIRECTORY_SEPARATOR . $profileFilePath);
+
+$profileInitial = preg_match('/^./us', $profileName, $initialMatch)
+    ? $initialMatch[0]
+    : '?';
+?>
+
+<!-- College Connect Navbar -->
+
+<nav class="cc-navbar">
     <div class="cc-nav-container">
 
         <!-- LOGO -->
         <a href="index.php" class="cc-brand">
-
             <div class="cc-logo">
                 <img src="https://adityatekkali.edu.in/ahlaad2k26/aitamsinglelogo.png"
                     alt="AITAM College Logo"
@@ -39,79 +77,117 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
             </div>
 
             <div class="cc-brand-text">
-
                 <h2>
-                    <?= htmlspecialchars($platformSettings['platform_name'], ENT_QUOTES, 'UTF-8') ?>
+                    <?= htmlspecialchars($platformSettings['platform_name'] ?? 'College Connect', ENT_QUOTES, 'UTF-8') ?>
                 </h2>
 
                 <span>
-                    <?= htmlspecialchars($platformSettings['platform_description'], ENT_QUOTES, 'UTF-8') ?>
+                    <?= htmlspecialchars($platformSettings['platform_description'] ?? '', ENT_QUOTES, 'UTF-8') ?>
                 </span>
-
             </div>
-
         </a>
 
-        
         <!-- DESKTOP MENU -->
         <div class="cc-nav-menu" id="ccNavMenu">
 
-<<<<<<< HEAD
-            <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
-=======
-<<<<<<< HEAD
+            <a href="index.php"
+                class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"
+                <?= $currentPage === 'index.php' ? 'aria-current="page"' : '' ?>>
+                Home
+            </a>
 
-            <a href="index.php" class="cc-nav-link active">Home</a>
-            <a href="ask_question.php" class="cc-nav-link">Ask Question</a>
-            <a href="community.php" class="cc-nav-link">Community</a>
-            <a href="questions.php" class="cc-nav-link">Questions</a>
-              <a href="alumni.php" class="cc-nav-link">Answer</a>
-            <a href="events.php" class="cc-nav-link">Events</a>
+            <a href="ask-question.php"
+                class="cc-nav-link<?= $currentPage === 'ask-question.php' ? ' active' : '' ?>"
+                <?= $currentPage === 'ask-question.php' ? 'aria-current="page"' : '' ?>>
+                Ask Question
+            </a>
 
-            <a href="about.php" class="cc-nav-link">About</a>
-            <a href="alumni.php" class="cc-nav-link">Alumni</a>
+            <a href="question-history.php"
+                class="cc-nav-link<?= $currentPage === 'question-history.php' ? ' active' : '' ?>"
+                <?= $currentPage === 'question-history.php' ? 'aria-current="page"' : '' ?>>
+                Questions
+            </a>
 
-=======
-          <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
->>>>>>> c88d56bc018668cab5a37f2d4c8a448f34934d0a
-           <a href="ask-question.php" class="cc-nav-link<?= $currentPage === 'ask-question.php' ? ' active' : '' ?>"<?= $currentPage === 'ask-question.php' ? ' aria-current="page"' : '' ?>>Ask Question</a>
-            <a href="question-history.php" class="cc-nav-link<?= $currentPage === 'question-history.php' ? ' active' : '' ?>"<?= $currentPage === 'question-history.php' ? ' aria-current="page"' : '' ?>>Questions</a>
-            <a href="answer.php" class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"<?= $currentPage === 'answer.php' ? ' aria-current="page"' : '' ?>>Answer</a>
-            <a href="leaderboard.php" class="cc-nav-link<?= $currentPage === 'leaderboard.php' ? ' active' : '' ?>"<?= $currentPage === 'leaderboard.php' ? ' aria-current="page"' : '' ?>>Leaderboard</a>
-            <a href="report.php" class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"<?= $currentPage === 'report.php' ? ' aria-current="page"' : '' ?>>Report</a>
-            <a href="index.php#events" class="cc-nav-link">Events</a>
-            <a href="about.php" class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"<?= $currentPage === 'about.php' ? ' aria-current="page"' : '' ?>>About</a>
+            <a href="answer.php"
+                class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"
+                <?= $currentPage === 'answer.php' ? 'aria-current="page"' : '' ?>>
+                Answer
+            </a>
 
->>>>>>> 3239fde1aec6c4b90ad2937ad649bfbf4a8de075
+            <a href="leaderboard.php"
+                class="cc-nav-link<?= $currentPage === 'leaderboard.php' ? ' active' : '' ?>"
+                <?= $currentPage === 'leaderboard.php' ? 'aria-current="page"' : '' ?>>
+                Leaderboard
+            </a>
+
+            <a href="report.php"
+                class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"
+                <?= $currentPage === 'report.php' ? 'aria-current="page"' : '' ?>>
+                Report
+            </a>
+
+            <a href="events.php"
+                class="cc-nav-link<?= $currentPage === 'events.php' ? ' active' : '' ?>"
+                <?= $currentPage === 'events.php' ? 'aria-current="page"' : '' ?>>
+                Events
+            </a>
+
+            <a href="about.php"
+                class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"
+                <?= $currentPage === 'about.php' ? 'aria-current="page"' : '' ?>>
+                About
+            </a>
+
             <!-- MOBILE ACTIONS -->
             <div class="cc-mobile-actions">
                 <?php if (!$is_logged_in): ?>
+
                     <a href="login.php" class="cc-login">Login</a>
                     <a href="register.php" class="cc-register">Join Now</a>
+
                 <?php else: ?>
+
                     <div class="nav-profile-wrapper">
-                        <button class="nav-profile-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+                        <button class="nav-profile-trigger" type="button"
+                            aria-expanded="false" aria-haspopup="true">
+
                             <?php if ($hasProfileImage): ?>
-                                <img class="nav-avatar-img" src="<?= htmlspecialchars($profileImagePath, ENT_QUOTES, 'UTF-8') ?>" alt="">
+                                <img class="nav-avatar-img"
+                                    src="<?= htmlspecialchars($profileImagePath, ENT_QUOTES, 'UTF-8') ?>"
+                                    alt="">
                             <?php else: ?>
-                                <span class="nav-avatar-fallback" aria-hidden="true"><?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="nav-avatar-fallback" aria-hidden="true">
+                                    <?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?>
+                                </span>
                             <?php endif; ?>
+
                             <span class="nav-user-meta">
-                                <span class="nav-user-name"><?= htmlspecialchars($profileName, ENT_QUOTES, 'UTF-8') ?></span>
-                                <span class="nav-user-role"><?= htmlspecialchars($profileRole, ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="nav-user-name">
+                                    <?= htmlspecialchars($profileName, ENT_QUOTES, 'UTF-8') ?>
+                                </span>
+
+                                <span class="nav-user-role">
+                                    <?= htmlspecialchars($profileRole, ENT_QUOTES, 'UTF-8') ?>
+                                </span>
                             </span>
+
                             <span class="nav-chevron" aria-hidden="true">⌄</span>
                         </button>
+
                         <div class="nav-profile-menu" role="menu">
                             <a class="nav-dropdown-item" role="menuitem" href="profile.php">My Profile</a>
-                            <a class="nav-dropdown-item" role="menuitem" href="questions_history.php">Questions History</a>
+                            <a class="nav-dropdown-item" role="menuitem" href="questions-history.php">Questions History</a>
+
                             <?php if (($_SESSION['role'] ?? null) === 'admin'): ?>
                                 <a class="nav-dropdown-item" role="menuitem" href="admin.php">Admin Panel</a>
                             <?php endif; ?>
+
                             <div class="nav-dropdown-divider" role="separator"></div>
+
                             <a class="nav-dropdown-item danger" role="menuitem" href="auth/logout.php">Logout</a>
                         </div>
                     </div>
+
                 <?php endif; ?>
             </div>
 
@@ -121,42 +197,63 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
         <div class="cc-nav-actions">
 
             <button class="cc-theme-btn" id="ccThemeBtn"
-                    type="button" aria-label="Toggle theme">
+                type="button" aria-label="Toggle theme">
                 <span id="ccThemeIcon">☾</span>
             </button>
 
             <?php if (!$is_logged_in): ?>
+
                 <a href="login.php" class="cc-login">Login</a>
                 <a href="register.php" class="cc-register">Join Now</a>
+
             <?php else: ?>
+
                 <div class="nav-profile-wrapper">
-                    <button class="nav-profile-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+                    <button class="nav-profile-trigger" type="button"
+                        aria-expanded="false" aria-haspopup="true">
+
                         <?php if ($hasProfileImage): ?>
-                            <img class="nav-avatar-img" src="<?= htmlspecialchars($profileImagePath, ENT_QUOTES, 'UTF-8') ?>" alt="">
+                            <img class="nav-avatar-img"
+                                src="<?= htmlspecialchars($profileImagePath, ENT_QUOTES, 'UTF-8') ?>"
+                                alt="">
                         <?php else: ?>
-                            <span class="nav-avatar-fallback" aria-hidden="true"><?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?></span>
+                            <span class="nav-avatar-fallback" aria-hidden="true">
+                                <?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?>
+                            </span>
                         <?php endif; ?>
+
                         <span class="nav-user-meta">
-                            <span class="nav-user-name"><?= htmlspecialchars($profileName, ENT_QUOTES, 'UTF-8') ?></span>
-                            <span class="nav-user-role"><?= htmlspecialchars($profileRole, ENT_QUOTES, 'UTF-8') ?></span>
+                            <span class="nav-user-name">
+                                <?= htmlspecialchars($profileName, ENT_QUOTES, 'UTF-8') ?>
+                            </span>
+
+                            <span class="nav-user-role">
+                                <?= htmlspecialchars($profileRole, ENT_QUOTES, 'UTF-8') ?>
+                            </span>
                         </span>
+
                         <span class="nav-chevron" aria-hidden="true">⌄</span>
                     </button>
+
                     <div class="nav-profile-menu" role="menu">
                         <a class="nav-dropdown-item" role="menuitem" href="profile.php">My Profile</a>
                         <a class="nav-dropdown-item" role="menuitem" href="questions-history.php">Questions History</a>
+
                         <?php if (($_SESSION['role'] ?? null) === 'admin'): ?>
                             <a class="nav-dropdown-item" role="menuitem" href="admin.php">Admin Panel</a>
                         <?php endif; ?>
+
                         <div class="nav-dropdown-divider" role="separator"></div>
+
                         <a class="nav-dropdown-item danger" role="menuitem" href="auth/logout.php">Logout</a>
                     </div>
                 </div>
+
             <?php endif; ?>
 
             <button class="cc-menu-toggle" id="ccMenuToggle"
-                    type="button" aria-label="Open menu"
-                    aria-expanded="false" aria-controls="ccNavMenu">
+                type="button" aria-label="Open menu"
+                aria-expanded="false" aria-controls="ccNavMenu">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -165,8 +262,8 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMa
         </div>
 
     </div>
-
 </nav>
+
 
 <style>
 /* Import global design tokens */
