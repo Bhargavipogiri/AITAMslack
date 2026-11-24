@@ -78,7 +78,10 @@ unset($_SESSION['fp_error']);
           <!-- Localhost XAMPP Testing Helper Banner -->
           <?php if (!empty($dev_otp) && $step === 'verify_otp'): ?>
             <div class="alert-banner alert-info-dev show">
-              <span><strong>Local XAMPP Test OTP:</strong> <?php echo htmlspecialchars($dev_otp); ?></span>
+              <span>
+                <strong>Local XAMPP Test OTP:</strong> <?php echo htmlspecialchars($dev_otp); ?>
+                Real Gmail delivery activates after configuring <code>config/mail_config.php</code>.
+              </span>
             </div>
           <?php endif; ?>
 
