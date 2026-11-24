@@ -119,7 +119,6 @@ $profileInitial = implode('', array_map(
         <!-- DESKTOP MENU -->
         <div class="cc-nav-menu" id="ccNavMenu">
 
-<<<<<<< HEAD
 
           <a href="index.php" class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"<?= $currentPage === 'index.php' ? ' aria-current="page"' : '' ?>>Home</a>
            <a href="ask-question.php" class="cc-nav-link<?= $currentPage === 'ask-question.php' ? ' active' : '' ?>"<?= $currentPage === 'ask-question.php' ? ' aria-current="page"' : '' ?>>Ask Question</a>
