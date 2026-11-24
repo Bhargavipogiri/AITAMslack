@@ -1,639 +1,592 @@
 
 <?php
-declare(strict_types=1);
+require_once __DIR__ . '/includes/auth.php';
+require_admin();
+require_once dirname(__DIR__) . '/includes/ai_helpers.php';
 
-require_once __DIR__ . '/includes/bootstrap.php';
-require_once __DIR__ . '/includes/ai_helpers.php';
-require_once __DIR__ . '/includes/openai_moderation.php';
-
-$user = require_login();
-
-$pageTitle = 'Ask a question';
-$errors = [];
-
-$old = [
-    'title' => '',
-    'body' => '',
-    'category_id' => ''
-];
-
-$textLength = static function (string $value): int {
-    return function_exists('mb_strlen')
-        ? mb_strlen($value)
-        : strlen($value);
-};
-
-// Load categories
-try {
-    $categoryQuery = db()->query(
-        'SELECT id, name FROM categories ORDER BY name ASC'
+function e(mixed $value): string
+{
+    return htmlspecialchars(
+        (string)($value ?? ''),
+        ENT_QUOTES | ENT_SUBSTITUTE,
+        'UTF-8'
     );
-
-    $categories = $categoryQuery->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (Throwable $exception) {
-    error_log('Category loading failed: ' . $exception->getMessage());
-    exit('Unable to load categories. Please check your database.');
 }
 
-// Process form submission
+$csrfToken = admin_csrf_token();
+$statuses = ['PENDING', 'APPROVED', 'REJECTED'];
+$search = is_string($_GET['search'] ?? null)
+    ? trim($_GET['search'])
+    : '';
+$status = is_string($_GET['status'] ?? null)
+    ? trim($_GET['status'])
+    : 'PENDING';
+$status = in_array($status, $statuses, true) ? $status : 'PENDING';
+$page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT);
+$page = ($page && $page > 0) ? $page : 1;
+$perPage = 20;
+$notice = $_SESSION['flash_message'] ?? '';
+unset($_SESSION['flash_message']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    verify_csrf();
-
-    $old['title'] = trim((string)($_POST['title'] ?? ''));
-    $old['body'] = trim((string)($_POST['body'] ?? ''));
-    $old['category_id'] = (string)($_POST['category_id'] ?? '');
-
-    $categoryId = filter_var(
-        $old['category_id'],
-        FILTER_VALIDATE_INT
+    $questionId = filter_var(
+        $_POST['question_id'] ?? null,
+        FILTER_VALIDATE_INT,
+        ['options' => ['min_range' => 1]]
     );
+    $action = $_POST['action'] ?? '';
 
-    $selectedCategory = '';
-
-    // Validate title
-    if (
-        $textLength($old['title']) < 15 ||
-        $textLength($old['title']) > 220
-    ) {
-        $errors[] = 'Your title must be between 15 and 220 characters.';
-    }
-
-    // Validate description
-    if (
-        $textLength($old['body']) < 30 ||
-        $textLength($old['body']) > 10000
-    ) {
-        $errors[] = 'Your question details must be between 30 and 10,000 characters.';
-    }
-
-    // Validate category
-    if ($categoryId === false || $categoryId < 1) {
-
-        $errors[] = 'Please select a valid category.';
-
+    if (!admin_csrf_verify(
+        is_string($_POST['csrf_token'] ?? null)
+            ? $_POST['csrf_token']
+            : null
+    )) {
+        $_SESSION['flash_message'] = 'Your session expired. Refresh and try again.';
+    } elseif ($questionId === false || !in_array($action, ['approve', 'reject'], true)) {
+        $_SESSION['flash_message'] = 'Invalid question review details.';
     } else {
+        $publicationStatus = $action === 'approve' ? 'APPROVED' : 'REJECTED';
+        $adminDecision = $publicationStatus;
 
-        $check = db()->prepare(
-            'SELECT name FROM categories WHERE id = ? LIMIT 1'
-        );
-
-        $check->execute([$categoryId]);
-
-        $selectedCategory = $check->fetchColumn();
-
-        if (!$selectedCategory) {
-            $errors[] = 'The selected category is no longer available.';
-        }
-    }
-
-    if (!$errors) {
-
-        $diagnosticId = cc_phase16_diagnostic_id();
-
-        cc_phase16_log_diagnostic(
-            $diagnosticId,
-            'question_submission',
-            [
-                'stage' => 'submission_start',
-                'request_reached_openai' => false,
-                'database_insert_succeeded' => false
-            ]
-        );
-
-        // AI safety scan
-        $risk = cc_phase16_risk_scan(
-            $old['title'],
-            $old['body'],
-            null,
-            $diagnosticId
-        );
-
-        // AI question quality check
-        $quality = cc_phase16_question_quality_for_submission(
-            $old['title'],
-            $old['body']
-        );
-
-        // Make moderation decision
-        $decision = cc_phase16_question_decision(
-            $risk,
-            $quality
-        );
-
-        $canPersist = cc_phase16_question_can_persist(
-            $risk,
-            $quality,
-            $decision
-        );
-
-        // Stop submission if required AI checks fail
-        if (!$canPersist) {
-
-            $checksUnavailable =
-                empty($risk['api_ok']) ||
-                empty($quality['api_ok']);
-
-            if (empty($risk['api_ok'])) {
-
-                $reasonCode = 'safety_unavailable';
-
-            } elseif (!empty($risk['flagged'])) {
-
-                $reasonCode = 'safety_flagged';
-
-            } elseif (empty($quality['api_ok'])) {
-
-                $reasonCode = 'quality_unavailable';
-
-            } elseif (
-                ($quality['decision'] ?? '') === 'block' &&
-                (float)($quality['confidence'] ?? 0) >= 0.85
-            ) {
-
-                $reasonCode = 'quality_blocked';
-
-            } else {
-
-                $reasonCode = 'quality_uncertain';
-            }
-
-            cc_phase16_log_submission_decision(
-                'question',
-                (int)$user['user_id'],
-                $checksUnavailable ? 'retry' : 'blocked',
-                $reasonCode,
-                !$checksUnavailable
-            );
-
-            cc_phase16_log_diagnostic(
-                $diagnosticId,
-                'question_submission',
-                [
-                    'stage' => 'checks_rejected_or_unavailable',
-                    'moderation_flagged' => !empty($risk['flagged']),
-                    'relevance_decision_valid' => !empty($quality['api_ok']),
-                    'database_insert_succeeded' => false,
-                    'error_category' => $reasonCode
-                ]
-            );
-
-            if ($checksUnavailable) {
-
-                set_flash(
-                    'error',
-                    'Required AI checks could not be completed. Please try again later. Reference: ' . $diagnosticId
-                );
-
-            } elseif (!empty($risk['flagged'])) {
-
-                set_flash(
-                    'error',
-                    'Your question was not saved because it did not pass the safety check. Reference: ' . $diagnosticId
-                );
-
-            } elseif ($reasonCode === 'quality_blocked') {
-
-                set_flash(
-                    'error',
-                    'This submission appears to be spam or not a genuine question. Please revise it.'
-                );
-
-            } else {
-
-                set_flash(
-                    'error',
-                    'We could not confidently verify this question. Please add more context and try again.'
-                );
-            }
-
-            redirect('ask_question.php');
-        }
-
-        // Save approved question
         try {
+            $pdo->beginTransaction();
 
-            db()->beginTransaction();
+            $exists = $pdo->prepare('SELECT id FROM questions WHERE id = :id FOR UPDATE');
+            $exists->execute([':id' => $questionId]);
 
-            $insert = db()->prepare(
-                'INSERT INTO questions
-                (
-                    user_id,
-                    question_title,
-                    question_description,
-                    category,
-                    status,
-                    created_at
-                )
-                VALUES (?, ?, ?, ?, ?, NOW())'
+            if (!$exists->fetchColumn()) {
+                throw new RuntimeException('Question not found.');
+            }
+
+            $update = $pdo->prepare(
+                'UPDATE questions
+                 SET publication_status = :publication_status
+                 WHERE id = :id'
             );
-
-            $insert->execute([
-                (int)$user['user_id'],
-                $old['title'],
-                $old['body'],
-                $selectedCategory,
-                'Pending'
+            $update->execute([
+                ':publication_status' => $publicationStatus,
+                ':id' => $questionId,
             ]);
 
-            $questionId = (int)db()->lastInsertId();
-
-            // Record AI moderation details
-            cc_phase16_record_moderation(
+            recordModerationEvent(
+                $pdo,
                 'question',
-                $questionId,
-                $risk,
-                $quality,
-                $decision['status']
+                (int)$questionId,
+                'ADMIN',
+                $publicationStatus,
+                [],
+                (int)($_SESSION['admin_id'] ?? 0),
+                $adminDecision
             );
 
-            db()->commit();
-
-            cc_phase16_log_diagnostic(
-                $diagnosticId,
-                'question_submission',
-                [
-                    'stage' => 'database_commit',
-                    'moderation_flagged' => false,
-                    'relevance_decision_valid' => true,
-                    'database_insert_succeeded' => true
-                ]
-            );
-
-            set_flash(
-                'success',
-                'Your question has been published after automated safety and quality checks.'
-            );
-
-            // Open the submitted question
-            redirect('question.php?id=' . $questionId);
-
+            $pdo->commit();
+            $_SESSION['flash_message'] = 'Question review decision saved.';
         } catch (Throwable $exception) {
-
-            if (db()->inTransaction()) {
-                db()->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
             }
 
-            $privateText = array_values(
-                array_filter(
-                    [$old['title'], $old['body']],
-                    static fn($value) => $value !== ''
-                )
-            );
-
-            $safeError = cc_openai_sanitize_error(
-                str_replace(
-                    $privateText,
-                    '[content redacted]',
-                    $exception->getMessage()
-                )
-            );
-
-            cc_phase16_log_diagnostic(
-                $diagnosticId,
-                'question_submission',
-                [
-                    'stage' => 'database_or_transaction_failure',
-                    'database_insert_succeeded' => false,
-                    'sqlstate' => $exception instanceof PDOException
-                        ? (string)$exception->getCode()
-                        : '',
-                    'error_category' => get_class($exception),
-                    'error_message' => $safeError
-                ]
-            );
-
             error_log(
-                'Question submission failed. Reference: ' .
-                $diagnosticId . ' Error: ' . $safeError
+                'Question review update failed: ' .
+                get_class($exception) . ' (' . $exception->getCode() . ')'
             );
-
-            $errors[] =
-                'The question could not be published. Reference: ' .
-                $diagnosticId;
+            $_SESSION['flash_message'] = 'Unable to save the question review decision.';
         }
     }
+
+    $redirectParams = [];
+    if ($search !== '') {
+        $redirectParams['search'] = $search;
+    }
+    if ($status !== '') {
+        $redirectParams['status'] = $status;
+    }
+
+    $redirectUrl = 'questions.php';
+    if ($redirectParams !== []) {
+        $redirectUrl .= '?' . http_build_query($redirectParams);
+    }
+
+    header('Location: ' . $redirectUrl);
+    exit;
 }
 
-// Load common header
-require __DIR__ . '/includes/header.php';
+$where = [];
+$params = [];
+
+if ($search !== '') {
+    $where[] = "(
+        q.question_title LIKE :title
+        OR q.question_description LIKE :description
+        OR q.category LIKE :category
+        OR CAST(q.user_id AS CHAR) LIKE :user_id
+    )";
+    $keyword = '%' . $search . '%';
+    $params[':title'] = $keyword;
+    $params[':description'] = $keyword;
+    $params[':category'] = $keyword;
+    $params[':user_id'] = $keyword;
+}
+
+if ($status !== '') {
+    $where[] = 'q.publication_status = :publication_status';
+    $params[':publication_status'] = $status;
+}
+
+$whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM questions q' . $whereSql);
+$countStmt->execute($params);
+$totalFilteredQuestions = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalFilteredQuestions / $perPage));
+$page = min($page, $totalPages);
+$offset = ($page - 1) * $perPage;
+
+$sql = "
+    SELECT
+        q.*,
+        author.full_name AS author_name,
+        author.email AS author_email,
+        author.department AS author_department,
+        author.role AS author_role,
+        ai.ai_decision,
+        ai.ai_reason,
+        ai.ai_confidence,
+        NULL AS ai_category,
+        ai.detected_violations,
+        ai.model AS ai_model,
+        ai.api_status
+    FROM questions q
+    LEFT JOIN users author ON author.user_id = q.user_id
+    LEFT JOIN moderation_events ai
+        ON ai.id = (
+            SELECT MAX(me.id)
+            FROM moderation_events me
+            WHERE me.content_type = 'question'
+              AND me.content_id = q.id
+              AND me.event_type = 'AI'
+        )
+    $whereSql
+    ORDER BY q.id DESC
+    LIMIT $perPage OFFSET $offset
+";
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$totalQuestions = (int)$pdo->query('SELECT COUNT(*) FROM questions')->fetchColumn();
+$pendingQuestions = (int)$pdo->query(
+    "SELECT COUNT(*) FROM questions WHERE publication_status = 'PENDING'"
+)->fetchColumn();
+$publishedQuestions = (int)$pdo->query(
+    "SELECT COUNT(*) FROM questions WHERE publication_status = 'APPROVED'"
+)->fetchColumn();
+$hiddenQuestions = (int)$pdo->query(
+    "SELECT COUNT(*) FROM questions WHERE publication_status = 'REJECTED'"
+)->fetchColumn();
+
 ?>
 
-<link rel="stylesheet" href="assets/css/ask-question.css">
+<!DOCTYPE html>
+<html lang="en">
 
-<main class="cc-ask-page">
+<head>
 
-    <header class="cc-ask-hero">
+    <meta charset="UTF-8">
 
-        <div>
-            <span class="cc-eyebrow">
-                COLLEGE CONNECT COMMUNITY
-            </span>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
-            <h1>Ask a question</h1>
+    <title>Question Management | AITAM Slack</title>
 
-            <p>
-                Share your doubt with students, alumni and faculty.
-                Add enough detail so the community can help.
-            </p>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+          rel="stylesheet">
+
+    <!-- Project CSS -->
+    <link rel="stylesheet" href="../assets/css/root.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+    <link rel="stylesheet" href="../assets/css/questions.css?v=1">
+
+</head>
+
+<body>
+
+<?php include "includes/sidebar.php"; ?>
+
+<div class="main-content">
+
+    <?php include "includes/topbar.php"; ?>
+
+    <main class="page-content questions-page">
+
+        <!-- Page Heading -->
+        <div class="page-heading">
+
+            <h2>Question Management</h2>
+
+            <p>View and manage questions submitted by users</p>
+
         </div>
 
-        <div class="cc-hero-mark" aria-hidden="true">?</div>
+        <?php if ($notice !== ''): ?>
+            <div class="alert alert-info" role="status"><?= e($notice) ?></div>
+        <?php endif; ?>
 
-    </header>
+        <!-- Summary Cards -->
+        <div class="question-stats">
 
-    <div class="cc-ask-layout">
+            <div class="question-card">
 
-        <section class="cc-ask-main">
+                <i class="bi bi-chat-square-text"></i>
 
-            <?php if ($errors): ?>
-
-                <div class="cc-alert" role="alert">
-
-                    <strong>We couldn't submit your question.</strong>
-
-                    <ul>
-                        <?php foreach ($errors as $error): ?>
-                            <li><?= e($error) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-
+                <div>
+                    <p>Total Questions</p>
+                    <h3><?= e($totalQuestions) ?></h3>
                 </div>
 
-            <?php endif; ?>
+            </div>
 
-            <?php if (!empty($_SESSION['flash']['error'])): ?>
+            <div class="question-card">
 
-                <div class="cc-alert" role="alert">
-                    <?= e($_SESSION['flash']['error']) ?>
+                <i class="bi bi-clock-history"></i>
+
+                <div>
+                    <p>Pending Questions</p>
+                    <h3><?= e($pendingQuestions) ?></h3>
                 </div>
 
-                <?php unset($_SESSION['flash']['error']); ?>
+            </div>
 
-            <?php endif; ?>
+            <div class="question-card">
 
-            <?php if (!empty($_SESSION['flash']['success'])): ?>
+                <i class="bi bi-check-circle"></i>
 
-                <div class="cc-alert" role="status">
-                    <?= e($_SESSION['flash']['success']) ?>
+                <div>
+                    <p>Published Questions</p>
+                    <h3><?= e($publishedQuestions) ?></h3>
                 </div>
 
-                <?php unset($_SESSION['flash']['success']); ?>
+            </div>
 
-            <?php endif; ?>
+            <div class="question-card">
 
-            <form
-                id="askQuestionForm"
-                class="cc-ask-card"
-                method="post"
-                action="ask_question.php"
-                novalidate
-            >
+                <i class="bi bi-eye-slash"></i>
 
-                <?= csrf_field() ?>
-
-                <div class="cc-card-heading">
-
-                    <div>
-                        <span class="cc-step-label">
-                            QUESTION DETAILS
-                        </span>
-
-                        <h2>What would you like to know?</h2>
-
-                        <p>
-                            Use a clear title and explain the problem in your own words.
-                        </p>
-                    </div>
-
-                    <span class="cc-ai-badge">
-                        ✦ AI checked
-                    </span>
-
+                <div>
+                    <p>Hidden Questions</p>
+                    <h3><?= e($hiddenQuestions) ?></h3>
                 </div>
 
-                <!-- Question title -->
-                <div class="cc-field">
+            </div>
 
-                    <label for="questionTitle">
-                        Question title <b>*</b>
-                    </label>
+        </div>
 
-                    <input
-                        id="questionTitle"
-                        name="title"
-                        type="text"
-                        minlength="15"
-                        maxlength="220"
-                        value="<?= e($old['title']) ?>"
-                        placeholder="e.g. How can I prepare for the campus placement coding round?"
-                        required
-                    >
+        <!-- Questions Panel -->
+        <section class="questions-panel">
 
-                    <div class="cc-meta">
-                        <span>Make it clear and specific.</span>
-                        <span id="titleCounter">0/220</span>
-                    </div>
+            <div class="panel-heading">
 
-                </div>
+                <h4>Submitted Questions</h4>
 
-                <!-- Category -->
-                <div class="cc-field">
+                <p>Manage questions submitted by registered users</p>
 
-                    <label for="questionCategory">
-                        Category <b>*</b>
-                    </label>
+            </div>
 
-                    <select
-                        id="questionCategory"
-                        name="category_id"
-                        required
-                    >
+            <!-- Search and Filters -->
+            <form method="GET" class="question-filters">
 
-                        <option value="">
-                            Choose the most relevant category
+                <input
+                    type="search"
+                    name="search"
+                    placeholder="Search questions..."
+                    value="<?= e($search) ?>"
+                >
+
+                <select name="status">
+
+                    <option value="">All Review Statuses</option>
+
+                    <?php foreach ($statuses as $availableStatus): ?>
+
+                        <option
+                            value="<?= e($availableStatus) ?>"
+                            <?= $status === $availableStatus ? "selected" : "" ?>
+                        >
+                            <?= e(ucfirst(strtolower($availableStatus))) ?>
                         </option>
 
-                        <?php foreach ($categories as $category): ?>
+                    <?php endforeach; ?>
 
-                            <option
-                                value="<?= (int)$category['id'] ?>"
-                                <?= (string)$category['id'] === $old['category_id'] ? 'selected' : '' ?>
-                            >
-                                <?= e($category['name']) ?>
-                            </option>
+                </select>
 
-                        <?php endforeach; ?>
+                <button type="submit">
+                    Search
+                </button>
 
-                    </select>
-
-                    <small>
-                        Categories are loaded from your existing categories table.
-                    </small>
-
-                </div>
-
-                <!-- Question description -->
-                <div class="cc-field">
-
-                    <div class="cc-label-row">
-
-                        <label for="questionBody">
-                            Question details <b>*</b>
-                        </label>
-
-                        <small>Be respectful · Add context</small>
-
-                    </div>
-
-                    <div class="cc-editor">
-
-                        <div class="cc-editor-tips">
-                            <span>Describe the problem</span>
-                            <span>Add what you tried</span>
-                            <span>Include relevant details</span>
-                        </div>
-
-                        <textarea
-                            id="questionBody"
-                            name="body"
-                            rows="10"
-                            minlength="30"
-                            maxlength="10000"
-                            placeholder="Explain your question in detail...
-
-What are you trying to understand?
-What have you tried so far?
-Which subject, technology, department, or process is involved?"
-                            required
-                        ><?= e($old['body']) ?></textarea>
-
-                        <div class="cc-meta cc-editor-meta">
-
-                            <span>
-                                Do not include passwords, OTPs, or private personal information.
-                            </span>
-
-                            <span id="bodyCounter">0/10,000</span>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <!-- Buttons -->
-                <div class="cc-form-actions">
-
-                    <a href="question-history.php">
-                        Cancel
-                    </a>
-
-                    <button
-                        type="submit"
-                        id="submitQuestionButton"
-                    >
-                        <span>Submit question</span>
-                        <span>↗</span>
-                    </button>
-
-                </div>
-
-                <p class="cc-submit-note">
-                    Your question is checked before it is saved.
-                    If required checks fail or are unavailable, it will not be saved.
-                </p>
+                <a href="questions.php">
+                    Reset
+                </a>
 
             </form>
 
-        </section>
+            <!-- Questions Table -->
+            <div class="table-responsive">
 
-        <!-- Sidebar -->
-        <aside class="cc-ask-sidebar">
+                <table class="table questions-table">
 
-            <article class="cc-side-card">
+                    <thead>
 
-                <div class="cc-side-icon">✦</div>
+                        <tr>
+                            <th>ID</th>
+                            <th>Question Title</th>
+                            <th>Category</th>
+                            <th>Author</th>
+                            <th>Publication</th>
+                            <th>AI Review</th>
+                            <th>Created At</th>
+                            <th>Action</th>
+                        </tr>
 
-                <h3>How to ask a great question</h3>
+                    </thead>
 
-                <ol>
+                    <tbody>
 
-                    <li>
-                        <b>01</b>
-                        <div>
-                            <strong>Use a specific title</strong>
-                            <small>Summarize your exact doubt.</small>
-                        </div>
-                    </li>
+                    <?php if (count($questions) > 0): ?>
 
-                    <li>
-                        <b>02</b>
-                        <div>
-                            <strong>Provide context</strong>
-                            <small>Include the subject or situation.</small>
-                        </div>
-                    </li>
+                        <?php foreach ($questions as $question): ?>
 
-                    <li>
-                        <b>03</b>
-                        <div>
-                            <strong>Show your effort</strong>
-                            <small>Mention what you already tried.</small>
-                        </div>
-                    </li>
+                            <tr>
 
-                    <li>
-                        <b>04</b>
-                        <div>
-                            <strong>Keep it respectful</strong>
-                            <small>Help everyone contribute.</small>
-                        </div>
-                    </li>
+                                <td>
+                                    <?= e($question["id"]) ?>
+                                </td>
 
-                </ol>
+                                <td>
 
-            </article>
+                                    <div class="question-title">
+                                        <?= e($question["question_title"]) ?>
+                                    </div>
 
-            <article class="cc-side-card cc-ai-card">
+                                    <details class="question-details">
 
-                <div class="cc-ai-heading">
-                    <i></i>
-                    <strong>AI moderation enabled</strong>
+                                        <summary>
+                                            View Description
+                                        </summary>
+
+                                        <p>
+                                            <?= nl2br(e($question["question_description"])) ?>
+                                        </p>
+
+                                    </details>
+
+                                </td>
+
+                                <td>
+
+                                    <span class="category-label">
+                                        <?= e($question["category"]) ?>
+                                    </span>
+
+                                </td>
+
+                                <td>
+                                    <?= e($question['author_name'] ?: 'User #' . $question['user_id']) ?>
+                                    <div class="small text-muted">
+                                        <?= e($question['author_email'] ?? '') ?>
+                                    </div>
+                                    <div class="small text-muted">
+                                        <?= e($question['author_department'] ?? '') ?>
+                                        <?= !empty($question['author_role']) ? ' · ' . e($question['author_role']) : '' ?>
+                                    </div>
+                                </td>
+
+                                <td>
+
+                                    <?php
+                                    $currentStatus = (string)($question["publication_status"] ?? 'PENDING');
+                                    ?>
+
+                                    <span class="question-status <?= e(strtolower($currentStatus)) ?>">
+                                        <?= e(ucfirst(strtolower($currentStatus))) ?>
+                                    </span>
+
+                                </td>
+
+                                <td>
+                                    <strong><?= e($question['ai_decision'] ?? 'FAILED') ?></strong>
+                                    <div class="small text-muted">
+                                        <?= e($question['ai_category'] ?? 'No category') ?>
+                                        · <?= e($question['api_status'] ?? 'not checked') ?>
+                                        <?php if ($question['ai_confidence'] !== null): ?>
+                                            · <?= e($question['ai_confidence']) ?> confidence
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if (!empty($question['ai_model'])): ?>
+                                        <div class="small text-muted">
+                                            <?= e($question['ai_model']) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($question['ai_reason'])): ?>
+                                        <details class="question-details">
+                                            <summary>Review details</summary>
+                                            <p><?= e($question['ai_reason']) ?></p>
+                                            <?php if (!empty($question['detected_violations'])): ?>
+                                                <p>
+                                                    Flags:
+                                                    <?= e($question['detected_violations']) ?>
+                                                </p>
+                                            <?php endif; ?>
+                                        </details>
+                                    <?php endif; ?>
+                                </td>
+
+                                <td>
+
+                                    <?= !empty($question["created_at"])
+                                        ? e(date("d M Y", strtotime($question["created_at"])))
+                                        : "N/A" ?>
+
+                                </td>
+
+                                <td>
+
+                                    <div class="question-actions">
+
+                                        <?php if ($currentStatus !== 'APPROVED'): ?>
+
+                                            <form method="POST">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="csrf_token"
+                                                    value="<?= e($csrfToken) ?>"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="question_id"
+                                                    value="<?= e($question["id"]) ?>"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="approve"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="publish-btn"
+                                                    title="Approve Question"
+                                                    onclick="return confirm('Approve and publish this question?')"
+                                                >
+                                                    <i class="bi bi-check-circle"></i>
+                                                </button>
+
+                                            </form>
+
+                                        <?php endif; ?>
+
+                                        <?php if ($currentStatus !== 'REJECTED'): ?>
+
+                                            <form method="POST">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="csrf_token"
+                                                    value="<?= e($csrfToken) ?>"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="question_id"
+                                                    value="<?= e($question["id"]) ?>"
+                                                >
+
+                                                <input
+                                                    type="hidden"
+                                                    name="action"
+                                                    value="reject"
+                                                >
+
+                                                <button
+                                                    type="submit"
+                                                    class="hide-btn"
+                                                    title="Reject Question"
+                                                    onclick="return confirm('Reject this question?')"
+                                                >
+                                                    <i class="bi bi-eye-slash"></i>
+                                                </button>
+
+                                            </form>
+
+                                        <?php endif; ?>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        <?php endforeach; ?>
+
+                    <?php else: ?>
+
+                        <tr>
+
+                            <td colspan="8" class="text-center">
+                                No questions found.
+                            </td>
+
+                        </tr>
+
+                    <?php endif; ?>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            <!-- Pagination -->
+            <?php if ($totalPages > 1): ?>
+
+                <div class="pagination-container">
+
+                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+
+                        <a
+                            href="?<?= e(http_build_query([
+                                "search" => $search,
+                                "status" => $status,
+                                "page" => $i
+                            ])) ?>"
+                            class="<?= $page === $i ? "active" : "" ?>"
+                        >
+                            <?= $i ?>
+                        </a>
+
+                    <?php endfor; ?>
+
                 </div>
 
-                <p>
-                    Questions are screened for safety and genuine question quality before publishing.
-                </p>
+            <?php endif; ?>
 
-                <span>✓ Safety screening</span>
-                <span>✓ Question quality screening</span>
-                <span>✓ Server-side API processing</span>
+        </section>
 
-            </article>
+    </main>
 
-            <article class="cc-side-card cc-help-card">
+</div>
 
-                <strong>Need help?</strong>
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
-                <p>
-                    Browse existing discussions.
-                    Someone may already have answered your question.
-                </p>
+<!-- Project JavaScript -->
+<script src="../assets/js/admin.js"></script>
 
-                <a href="question-history.php">
-                    Explore questions →
-                </a>
-
-            </article>
-
-        </aside>
-
-    </div>
-
-</main>
-
-<script src="assets/js/ask-question.js" defer></script>
-
-<?php require __DIR__ . '/includes/footer.php'; ?>
+</body>
+</html>

@@ -1,22 +1,16 @@
 <?php
-<<<<<<< HEAD
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-=======
-session_start();
->>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
-
-/* Correct database filename */
-require_once 'lesder-db.php';
-
-/* Escape output */
-function e($value) {
-    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
-}
+require_once __DIR__ . '/includes/bootstrap.php';
+require_once __DIR__ . '/includes/ai_helpers.php';
+require_once __DIR__ . '/lesder-db.php';
 
 $databaseError = '';
+$currentUserId = filter_var(
+    $_SESSION['user_id'] ?? null,
+    FILTER_VALIDATE_INT,
+    ['options' => ['min_range' => 1]]
+);
+$canAnswer = $currentUserId !== false;
 
 /* =====================================
    SUBMIT ANSWER
@@ -24,96 +18,147 @@ $databaseError = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    verify_csrf();
+
     $questionId = filter_var(
         $_POST['question_id'] ?? '',
         FILTER_VALIDATE_INT
     );
 
-    $answerText = trim($_POST['answer_text'] ?? '');
+    $answerInput = $_POST['answer_text'] ?? '';
+    $answerText = is_string($answerInput) ? trim($answerInput) : '';
 
-    if (!$questionId || $answerText === '') {
+    if (!$canAnswer) {
+        header('Location: login.php');
+        exit();
+    }
 
-        $redirectId = $questionId ? $questionId : '';
-
-        header(
-            "Location: answer.php" .
-            ($redirectId
-                ? "?question_id=" . $redirectId . "&error=invalid"
-                : "?error=invalid")
-        );
-
+    if ($questionId === false || $questionId < 1 || $answerText === '') {
+        header("Location: answer.php?error=invalid");
         exit();
     }
 
     try {
 
-        /* Check whether question exists */
         $check = $conn->prepare(
-            "SELECT id FROM questions WHERE id = :id"
+            "SELECT id, question_title, question_description, category
+             FROM questions
+             WHERE id = :id
+               AND publication_status = 'APPROVED'"
         );
 
         $check->execute(['id' => $questionId]);
+        $question = $check->fetch(PDO::FETCH_ASSOC);
 
-        if (!$check->fetch(PDO::FETCH_ASSOC)) {
-
-            header(
-                "Location: answer.php?question_id=" .
-                $questionId . "&error=notfound"
-            );
-
+        if (!$question) {
+            header("Location: answer.php?question_id=" . $questionId . "&error=notfound");
             exit();
         }
 
-        /* Get logged-in user ID */
-        $userId = 0;
-
-        if (
-            !empty($_SESSION['user_id']) &&
-            filter_var($_SESSION['user_id'], FILTER_VALIDATE_INT)
-        ) {
-            $userId = (int)$_SESSION['user_id'];
+        if (!consumeModerationSubmissionToken(
+            'answer',
+            $questionId,
+            $_POST['submission_token'] ?? null
+        )) {
+            header("Location: answer.php?question_id=" . $questionId . "&error=invalid");
+            exit();
         }
 
-        /* Insert answer */
+        $answerLength = function_exists('mb_strlen')
+            ? mb_strlen($answerText, 'UTF-8')
+            : strlen($answerText);
+
+        if ($answerLength > 10000) {
+            header("Location: answer.php?question_id=" . $questionId . "&error=invalid");
+            exit();
+        }
+
+        $duplicateCheck = findPotentialDuplicateAnswers(
+            $conn,
+            (int)$questionId,
+            $answerText
+        );
+        $possibleDuplicates = !empty($duplicateCheck['ok'])
+            && is_array($duplicateCheck['matches'] ?? null)
+            ? $duplicateCheck['matches']
+            : [];
+
+        $moderation = groqRateLimitAllowed((int)$currentUserId, 'answer')
+            ? moderateAnswer(
+                (string)$question['question_title'],
+                (string)$question['question_description'],
+                $answerText,
+                $possibleDuplicates,
+                (string)($question['category'] ?? '')
+            )
+            : groqModerationFailure('answer', 'rate_limited');
+
+        $conn->beginTransaction();
+
+        $publicationStatus = moderationPublicationStatus($moderation);
+
         $sql = "INSERT INTO answers
-                (question_id, user_id, answer_text)
+                (question_id, user_id, answer_text, publication_status)
                 VALUES
-                (:question_id, :user_id, :answer_text)";
+                (:question_id, :user_id, :answer_text, :publication_status)";
 
         $stmt = $conn->prepare($sql);
 
         $stmt->execute([
             'question_id' => $questionId,
-            'user_id' => $userId,
-            'answer_text' => $answerText
+            'user_id' => $currentUserId,
+            'answer_text' => $answerText,
+            'publication_status' => $publicationStatus
         ]);
 
-        /* Update question status */
-        $update = $conn->prepare(
-            "UPDATE questions
-             SET status = 'Answered'
-             WHERE id = :id"
+        $answerId = (int)$conn->lastInsertId();
+
+        if ($answerId < 1) {
+            throw new RuntimeException('Answer insert did not complete.');
+        }
+
+        recordModerationEvent(
+            $conn,
+            'answer',
+            $answerId,
+            'AI',
+            $publicationStatus,
+            $moderation
         );
 
-        $update->execute(['id' => $questionId]);
+        if ($publicationStatus === 'APPROVED') {
+            $updateQuestion = $conn->prepare(
+                "UPDATE questions
+                 SET status = 'Answered'
+                 WHERE id = :id
+                   AND publication_status = 'APPROVED'
+                   AND status = 'Pending'"
+            );
+            $updateQuestion->execute(['id' => $questionId]);
+        }
 
-        /* Redirect after successful submission */
+        $conn->commit();
+
         header(
             "Location: answer.php?question_id=" .
-            $questionId . "&success=1"
+            $questionId .
+            "&success=" .
+            ($publicationStatus === 'APPROVED' ? 'approved' : 'pending')
         );
-
         exit();
 
-    } catch (PDOException $ex) {
+    } catch (Throwable $ex) {
 
-        error_log("Answer Submission Error: " . $ex->getMessage());
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
 
-        header(
-            "Location: answer.php?question_id=" .
-            $questionId . "&error=database"
+        error_log(
+            'Answer submission failed: ' .
+            get_class($ex) . ' (' . $ex->getCode() . ')'
         );
 
+        header("Location: answer.php?question_id=" . $questionId . "&error=database");
         exit();
     }
 }
@@ -142,13 +187,11 @@ try {
                     category,
                     created_at
                 FROM questions
-                WHERE id = :id";
+                WHERE id = :id
+                  AND publication_status = 'APPROVED'";
 
         $stmt = $conn->prepare($sql);
-
-        $stmt->execute([
-            'id' => $selectedQuestionId
-        ]);
+        $stmt->execute(['id' => $selectedQuestionId]);
 
     } else {
 
@@ -159,25 +202,29 @@ try {
                     category,
                     created_at
                 FROM questions
+                WHERE publication_status = 'APPROVED'
                 ORDER BY created_at DESC";
 
         $stmt = $conn->prepare($sql);
-
         $stmt->execute();
     }
 
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    /* Fetch answers */
     $answerQuery = $conn->prepare(
         "SELECT
-            id,
-            user_id,
-            answer_text,
-            created_at
-         FROM answers
-         WHERE question_id = :question_id
-         ORDER BY created_at ASC"
+            a.id,
+            a.user_id,
+            a.answer_text,
+            a.created_at,
+            COALESCE(NULLIF(s.name, ''), NULLIF(u.full_name, '')) AS author_name,
+            COALESCE(NULLIF(s.department, ''), NULLIF(u.department, '')) AS author_department
+         FROM answers a
+         LEFT JOIN students s ON s.id = a.user_id
+         LEFT JOIN users u ON u.user_id = a.user_id
+         WHERE a.question_id = :question_id
+           AND a.publication_status = 'APPROVED'
+         ORDER BY a.created_at ASC, a.id ASC"
     );
 
 } catch (PDOException $ex) {
@@ -185,11 +232,10 @@ try {
     error_log("Question Fetch Error: " . $ex->getMessage());
 
     $databaseError = 'Unable to load questions and answers.';
-
     $answerQuery = null;
 }
-
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -506,6 +552,12 @@ body[data-theme="dark"] .question-card {
     border: 1px solid #16a34a;
 }
 
+.message.review {
+    background: rgba(217, 153, 32, 0.13);
+    color: var(--answer-text);
+    border: 1px solid #d69e2e;
+}
+
 .message.error,
 .message.database-error {
     background: rgba(220, 38, 38, 0.12);
@@ -644,8 +696,12 @@ body[data-theme="dark"] .question-card {
     <!-- SUCCESS MESSAGE -->
     <?php if (isset($_GET['success'])): ?>
 
-        <div class="message success" role="status">
-            ✓ Your answer was submitted successfully!
+        <div class="message <?= $_GET['success'] === 'approved' ? 'success' : 'review' ?>" role="status">
+        <?php if ($_GET['success'] === 'approved'): ?>
+            Your answer has been published successfully!
+        <?php else: ?>
+            Your answer could not be automatically approved because it may be incorrect, irrelevant, or inappropriate. It has been forwarded to the administrator for review.
+        <?php endif; ?>
         </div>
 
     <?php endif; ?>
@@ -694,7 +750,10 @@ body[data-theme="dark"] .question-card {
 
         <?php foreach ($questions as $question): ?>
 
-            <article class="question-card">
+            <article
+                class="question-card"
+                id="question-<?= e($question['id']) ?>"
+            >
 
                 <h3>
                     <?= e($question['question_title']) ?>
@@ -746,25 +805,31 @@ body[data-theme="dark"] .question-card {
 
                                 <div class="answer-meta">
 
-                                    <?= ((int)$answer['user_id'] === 0)
-                                        ? 'Answered publicly'
-                                        : 'Answered by User #' . e($answer['user_id']) ?>
+                                    <?php if (!empty($answer['author_name'])): ?>
+
+                                        <?= e($answer['author_name']) ?>
+
+                                        <?php if (!empty($answer['author_department'])): ?>
+                                            · <?= e($answer['author_department']) ?>
+                                        <?php endif; ?>
+
+                                    <?php else: ?>
+
+                                        <?= (int)$answer['user_id'] > 0
+                                            ? 'Student #' . e($answer['user_id'])
+                                            : 'Answered publicly' ?>
+
+                                    <?php endif; ?>
 
                                     |
 
                                     <?php
-
                                     $answerDate = strtotime(
                                         (string)($answer['created_at'] ?? '')
                                     );
-
                                     ?>
 
-                                    <?= e(
-                                        $answerDate
-                                            ? date('d M Y, h:i A', $answerDate)
-                                            : 'Unknown'
-                                    ) ?>
+                                    <?= e($answerDate ? date('d M Y, h:i A', $answerDate) : 'Unknown') ?>
 
                                 </div>
 
@@ -775,7 +840,7 @@ body[data-theme="dark"] .question-card {
                     <?php else: ?>
 
                         <p class="answer-meta">
-                            No answers yet. Be the first to answer!
+                            No answers yet
                         </p>
 
                     <?php endif; ?>
@@ -784,32 +849,51 @@ body[data-theme="dark"] .question-card {
 
 
                 <!-- SUBMIT ANSWER FORM -->
-                <form method="POST"
-                      action="answer.php"
-                      class="answer-form">
+                <?php if ($canAnswer): ?>
 
-                    <input
-                        type="hidden"
-                        name="question_id"
-                        value="<?= e($question['id']) ?>"
-                    >
+                    <form method="POST"
+                          action="answer.php"
+                          class="answer-form">
 
-                    <label for="answer-<?= e($question['id']) ?>">
-                        Write Your Answer
-                    </label>
+                        <input
+                            type="hidden"
+                            name="question_id"
+                            value="<?= e($question['id']) ?>"
+                        >
 
-                    <textarea
-                        id="answer-<?= e($question['id']) ?>"
-                        name="answer_text"
-                        placeholder="Type your answer here..."
-                        required
-                    ></textarea>
+                        <?= csrf_field() ?>
 
-                    <button type="submit">
-                        Submit Answer
-                    </button>
+                        <input
+                            type="hidden"
+                            name="submission_token"
+                            value="<?= e(moderationSubmissionToken('answer', (int)$question['id'])) ?>"
+                        >
 
-                </form>
+                        <label for="answer-<?= e($question['id']) ?>">
+                            Write Your Answer (up to 10,000 characters)
+                        </label>
+
+                        <textarea
+                            id="answer-<?= e($question['id']) ?>"
+                            name="answer_text"
+                            maxlength="10000"
+                            placeholder="Type your answer here..."
+                            required
+                        ></textarea>
+
+                        <button type="submit">
+                            Submit Answer
+                        </button>
+
+                    </form>
+
+                <?php else: ?>
+
+                    <p class="answer-meta">
+                        <a href="login.php">Sign in</a> to submit an answer.
+                    </p>
+
+                <?php endif; ?>
 
             </article>
 
