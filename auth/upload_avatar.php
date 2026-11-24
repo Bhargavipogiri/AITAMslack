@@ -33,6 +33,61 @@ if (
     $respond(403, ['success' => false, 'message' => 'Your session token is invalid. Refresh and try again.']);
 }
 
+if (($_POST['action'] ?? '') === 'remove') {
+    require_once __DIR__ . '/../config/db.php';
+    $uploadDirectory = __DIR__ . '/../uploads/avatars';
+
+    try {
+        $pdo->beginTransaction();
+        $userStmt = $pdo->prepare(
+            'SELECT profile_image
+             FROM users
+             WHERE user_id = :user_id
+             LIMIT 1
+             FOR UPDATE'
+        );
+        $userStmt->execute([':user_id' => $userId]);
+        $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            $pdo->rollBack();
+            $respond(404, ['success' => false, 'message' => 'Your profile could not be found.']);
+        }
+
+        $previousImage = (string)($user['profile_image'] ?? '');
+        if (preg_match('~\Auploads/avatars/([A-Za-z0-9._-]+)\z~D', $previousImage, $matches)) {
+            $avatarDirectoryRealPath = realpath($uploadDirectory);
+            $previousPath = realpath($uploadDirectory . DIRECTORY_SEPARATOR . $matches[1]);
+            if (
+                $avatarDirectoryRealPath !== false
+                && $previousPath !== false
+                && dirname($previousPath) === $avatarDirectoryRealPath
+                && is_file($previousPath)
+                && !@unlink($previousPath)
+            ) {
+                throw new RuntimeException('Previous profile picture could not be removed.');
+            }
+        }
+
+        $updateStmt = $pdo->prepare(
+            'UPDATE users
+             SET profile_image = NULL
+             WHERE user_id = :user_id'
+        );
+        $updateStmt->execute([':user_id' => $userId]);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('Avatar removal error: ' . $exception->getMessage());
+        $respond(500, ['success' => false, 'message' => 'Unable to remove your profile picture.']);
+    }
+
+    $_SESSION['profile_image'] = '';
+    $respond(200, ['success' => true]);
+}
+
 if (!isset($_FILES['avatar']) || !is_array($_FILES['avatar'])) {
     $respond(400, ['success' => false, 'message' => 'Choose an image to upload.']);
 }
