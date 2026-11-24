@@ -1,96 +1,89 @@
 
 <?php
+
 require_once __DIR__ . '/includes/auth.php';
 require_admin();
 
-require_once 'includes/db.php';
+require_once __DIR__ . '/includes/db.php';
 
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+/* -------------------------------------------------
+   HELPER FUNCTION
+------------------------------------------------- */
+
+if (!function_exists('e')) {
+    function e($value): string
+    {
+        return htmlspecialchars(
+            (string)($value ?? ''),
+            ENT_QUOTES | ENT_SUBSTITUTE,
+            'UTF-8'
+        );
+    }
 }
 
-function e($value) {
-    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
-}
-
-$allowedStatuses = ['Published', 'Pending', 'Hidden'];
+/* -------------------------------------------------
+   SEARCH AND FILTER
+------------------------------------------------- */
 
 $search = trim($_GET['search'] ?? '');
-$status = trim($_GET['status'] ?? '');
+$category = trim($_GET['category'] ?? '');
 
-if (!in_array($status, $allowedStatuses, true)) {
-    $status = '';
-}
+/* -------------------------------------------------
+   FLASH MESSAGE
+------------------------------------------------- */
 
 $message = $_SESSION['flash_message'] ?? '';
 unset($_SESSION['flash_message']);
 
-/* UPDATE ANSWER STATUS */
+/* -------------------------------------------------
+   FETCH CATEGORIES
+------------------------------------------------- */
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+$categoryStmt = $pdo->query("
+    SELECT DISTINCT category
+    FROM questions
+    WHERE category IS NOT NULL
+      AND category != ''
+    ORDER BY category ASC
+");
 
-    $token = $_POST['csrf_token'] ?? '';
-    $answerId = filter_var($_POST['answer_id'] ?? null, FILTER_VALIDATE_INT);
-    $newStatus = $_POST['status'] ?? '';
+$categories = $categoryStmt->fetchAll(PDO::FETCH_COLUMN);
 
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
-        $_SESSION['flash_message'] = 'Invalid request. Please try again.';
-    } elseif (!$answerId || !in_array($newStatus, $allowedStatuses, true)) {
-        $_SESSION['flash_message'] = 'Invalid answer details.';
-    } else {
-        $stmt = $pdo->prepare("
-            UPDATE answers
-            SET status = :status
-            WHERE id = :id
-        ");
-
-        $stmt->execute([
-            ':status' => $newStatus,
-            ':id' => $answerId
-        ]);
-
-        $_SESSION['flash_message'] = 'Answer status updated successfully.';
-    }
-
-    $redirectParams = [];
-
-    if ($search !== '') {
-        $redirectParams['search'] = $search;
-    }
-
-    if ($status !== '') {
-        $redirectParams['status'] = $status;
-    }
-
-    $redirectUrl = 'answers.php';
-
-    if (!empty($redirectParams)) {
-        $redirectUrl .= '?' . http_build_query($redirectParams);
-    }
-
-    header("Location: " . $redirectUrl);
-    exit;
+if (!in_array($category, $categories, true)) {
+    $category = '';
 }
 
-/* FETCH ANSWER STATISTICS */
+/* -------------------------------------------------
+   ANSWER STATISTICS
+------------------------------------------------- */
 
 $statsStmt = $pdo->query("
     SELECT
         COUNT(*) AS total_answers,
-        SUM(CASE WHEN status = 'Published' THEN 1 ELSE 0 END) AS published_answers,
-        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_answers,
-        SUM(CASE WHEN status = 'Hidden' THEN 1 ELSE 0 END) AS hidden_answers
+        COUNT(DISTINCT question_id) AS answered_questions,
+        COUNT(DISTINCT user_id) AS total_contributors,
+        COALESCE(
+            SUM(
+                CASE
+                    WHEN DATE(created_at) = CURDATE()
+                    THEN 1
+                    ELSE 0
+                END
+            ), 0
+        ) AS answers_today
     FROM answers
 ");
 
 $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
 
-$totalAnswers = (int)$stats['total_answers'];
-$publishedAnswers = (int)$stats['published_answers'];
-$pendingAnswers = (int)$stats['pending_answers'];
-$hiddenAnswers = (int)$stats['hidden_answers'];
+$totalAnswers = (int)($stats['total_answers'] ?? 0);
+$answeredQuestions = (int)($stats['answered_questions'] ?? 0);
+$totalContributors = (int)($stats['total_contributors'] ?? 0);
+$answersToday = (int)($stats['answers_today'] ?? 0);
 
-/* FETCH ANSWERS */
+/* -------------------------------------------------
+   FETCH ANSWERS
+------------------------------------------------- */
 
 $sql = "
     SELECT
@@ -98,41 +91,66 @@ $sql = "
         a.answer_text,
         a.question_id,
         a.user_id,
-        a.status,
         a.created_at,
-        q.question_title
+
+        u.full_name,
+        u.email,
+
+        q.question_title,
+        q.category
+
     FROM answers a
+
     LEFT JOIN questions q
-        ON a.question_id = q.id
+        ON q.id = a.question_id
+
+    LEFT JOIN users u
+        ON u.user_id = a.user_id
+
     WHERE 1 = 1
 ";
 
 $params = [];
 
+/* SEARCH */
+
 if ($search !== '') {
+
     $sql .= "
         AND (
             a.answer_text LIKE :search1
             OR q.question_title LIKE :search2
-            OR CAST(a.user_id AS CHAR) LIKE :search3
-            OR CAST(a.id AS CHAR) LIKE :search4
+            OR u.full_name LIKE :search3
+            OR u.email LIKE :search4
+            OR CAST(a.user_id AS CHAR) LIKE :search5
+            OR CAST(a.id AS CHAR) LIKE :search6
         )
     ";
 
-    $searchValue = '%' . $search . '%';
+    $keyword = '%' . $search . '%';
 
-    $params[':search1'] = $searchValue;
-    $params[':search2'] = $searchValue;
-    $params[':search3'] = $searchValue;
-    $params[':search4'] = $searchValue;
+    $params[':search1'] = $keyword;
+    $params[':search2'] = $keyword;
+    $params[':search3'] = $keyword;
+    $params[':search4'] = $keyword;
+    $params[':search5'] = $keyword;
+    $params[':search6'] = $keyword;
 }
 
-if ($status !== '') {
-    $sql .= " AND a.status = :status";
-    $params[':status'] = $status;
+/* CATEGORY FILTER */
+
+if ($category !== '') {
+
+    $sql .= " AND q.category = :category";
+
+    $params[':category'] = $category;
 }
+
+/* ORDER */
 
 $sql .= " ORDER BY a.created_at DESC";
+
+/* EXECUTE */
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -152,341 +170,450 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <title>AITAM Slack | Answer Management</title>
 
+    <!-- Bootstrap CSS -->
+
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
         rel="stylesheet"
     >
+
+    <!-- Bootstrap Icons -->
 
     <link
         rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
     >
 
+    <!-- Existing Project CSS -->
+
     <link rel="stylesheet" href="../assets/css/root.css">
+
     <link rel="stylesheet" href="../assets/css/admin.css">
+
     <link rel="stylesheet" href="../assets/css/answers.css">
 
 </head>
 
 <body>
 
-    <?php include 'includes/sidebar.php'; ?>
+<!-- SIDEBAR: KEEP EXISTING SIDEBAR -->
 
-    <div class="main-content">
+<?php include 'includes/sidebar.php'; ?>
 
-        <?php include 'includes/topbar.php'; ?>
 
-        <main class="page-content answers-page">
+<!-- MAIN CONTENT: SAME STRUCTURE AS questions.php -->
 
-            <div class="page-heading">
+<div class="main-content">
 
-                <h2>Answer Management</h2>
+    <!-- TOP NAVBAR: KEEP EXISTING TOPBAR -->
+
+    <?php include 'includes/topbar.php'; ?>
+
+
+    <!-- PAGE CONTENT -->
+
+    <main class="page-content answers-page">
+
+
+        <!-- PAGE HEADING -->
+
+        <div class="page-heading">
+
+            <h2>Answer Management</h2>
+
+            <p>
+                Manage and monitor all answers submitted by users.
+            </p>
+
+        </div>
+
+
+        <!-- FLASH MESSAGE -->
+
+        <?php if ($message !== ''): ?>
+
+            <div class="alert alert-info alert-dismissible fade show">
+
+                <?= e($message) ?>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert"
+                    aria-label="Close"
+                ></button>
+
+            </div>
+
+        <?php endif; ?>
+
+
+        <!-- STATISTICS -->
+
+        <div class="answer-stats">
+
+
+            <!-- TOTAL ANSWERS -->
+
+            <div class="answer-card">
+
+                <div class="answer-icon total-icon">
+
+                    <i class="bi bi-chat-left-text"></i>
+
+                </div>
+
+                <div class="answer-details">
+
+                    <p>Total Answers</p>
+
+                    <h3><?= e($totalAnswers) ?></h3>
+
+                </div>
+
+            </div>
+
+
+            <!-- ANSWERED QUESTIONS -->
+
+            <div class="answer-card">
+
+                <div class="answer-icon published-icon">
+
+                    <i class="bi bi-check-circle"></i>
+
+                </div>
+
+                <div class="answer-details">
+
+                    <p>Questions with Answers</p>
+
+                    <h3><?= e($answeredQuestions) ?></h3>
+
+                </div>
+
+            </div>
+
+
+            <!-- CONTRIBUTORS -->
+
+            <div class="answer-card">
+
+                <div class="answer-icon pending-icon">
+
+                    <i class="bi bi-people"></i>
+
+                </div>
+
+                <div class="answer-details">
+
+                    <p>Answer Contributors</p>
+
+                    <h3><?= e($totalContributors) ?></h3>
+
+                </div>
+
+            </div>
+
+
+            <!-- ANSWERS TODAY -->
+
+            <div class="answer-card">
+
+                <div class="answer-icon hidden-icon">
+
+                    <i class="bi bi-calendar-check"></i>
+
+                </div>
+
+                <div class="answer-details">
+
+                    <p>Answers Today</p>
+
+                    <h3><?= e($answersToday) ?></h3>
+
+                </div>
+
+            </div>
+
+
+        </div>
+
+
+        <!-- ANSWERS TABLE PANEL -->
+
+        <div class="answers-panel">
+
+
+            <!-- PANEL HEADING -->
+
+            <div class="panel-heading">
+
+                <h4>All Answers</h4>
 
                 <p>
-                    Monitor, review, and manage answers submitted by users.
+                    View and monitor answers submitted by users.
                 </p>
 
             </div>
 
-            <?php if ($message !== ''): ?>
 
-                <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <!-- SEARCH AND FILTER -->
 
-                    <?= e($message) ?>
-
-                    <button
-                        type="button"
-                        class="btn-close"
-                        data-bs-dismiss="alert"
-                        aria-label="Close"
-                    ></button>
-
-                </div>
-
-            <?php endif; ?>
+            <form method="GET" class="answer-filters">
 
 
-            <!-- STATISTICS CARDS -->
+                <!-- SEARCH BOX -->
 
-            <div class="answer-stats">
+                <div class="search-box">
 
-                <div class="answer-card">
+                    <i class="bi bi-search"></i>
 
-                    <div class="answer-icon total-icon">
-                        <i class="bi bi-chat-left-text"></i>
-                    </div>
-
-                    <div class="answer-details">
-                        <p>Total Answers</p>
-                        <h3><?= $totalAnswers ?></h3>
-                    </div>
+                    <input
+                        type="text"
+                        name="search"
+                        placeholder="Search answers, questions or users..."
+                        value="<?= e($search) ?>"
+                    >
 
                 </div>
 
 
-                <div class="answer-card">
+                <!-- CATEGORY -->
 
-                    <div class="answer-icon published-icon">
-                        <i class="bi bi-check-circle"></i>
-                    </div>
+                <select name="category">
 
-                    <div class="answer-details">
-                        <p>Published Answers</p>
-                        <h3><?= $publishedAnswers ?></h3>
-                    </div>
+                    <option value="">All Categories</option>
 
-                </div>
+                    <?php foreach ($categories as $cat): ?>
 
-
-                <div class="answer-card">
-
-                    <div class="answer-icon pending-icon">
-                        <i class="bi bi-hourglass-split"></i>
-                    </div>
-
-                    <div class="answer-details">
-                        <p>Pending Answers</p>
-                        <h3><?= $pendingAnswers ?></h3>
-                    </div>
-
-                </div>
-
-
-                <div class="answer-card">
-
-                    <div class="answer-icon hidden-icon">
-                        <i class="bi bi-eye-slash"></i>
-                    </div>
-
-                    <div class="answer-details">
-                        <p>Hidden Answers</p>
-                        <h3><?= $hiddenAnswers ?></h3>
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            <!-- ANSWERS TABLE PANEL -->
-
-            <div class="answers-panel">
-
-                <div class="panel-heading">
-
-                    <div>
-
-                        <h4>All Answers</h4>
-
-                        <p>
-                            Monitor and manage user-submitted answers.
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                <!-- SEARCH AND FILTER -->
-
-                <form method="GET" class="answer-filters">
-
-                    <div class="search-box">
-
-                        <i class="bi bi-search"></i>
-
-                        <input
-                            type="text"
-                            name="search"
-                            placeholder="Search answers, questions, or user ID..."
-                            value="<?= e($search) ?>"
+                        <option
+                            value="<?= e($cat) ?>"
+                            <?= $category === $cat ? 'selected' : '' ?>
                         >
 
-                    </div>
+                            <?= e($cat) ?>
+
+                        </option>
+
+                    <?php endforeach; ?>
+
+                </select>
 
 
-                    <select name="status">
+                <!-- FILTER BUTTON -->
 
-                        <option value="">All Statuses</option>
+                <button type="submit" class="filter-btn">
 
-                        <?php foreach ($allowedStatuses as $item): ?>
+                    <i class="bi bi-funnel"></i>
 
-                            <option
-                                value="<?= e($item) ?>"
-                                <?= $status === $item ? 'selected' : '' ?>
-                            >
-                                <?= e($item) ?>
-                            </option>
+                    Filter
 
-                        <?php endforeach; ?>
-
-                    </select>
+                </button>
 
 
-                    <button type="submit" class="filter-btn">
+                <!-- RESET BUTTON -->
 
-                        <i class="bi bi-funnel"></i>
-                        Filter
+                <a href="answers.php" class="reset-btn">
 
-                    </button>
+                    Reset
 
-
-                    <a href="answers.php" class="reset-btn">
-                        Reset
-                    </a>
-
-                </form>
+                </a>
 
 
-                <!-- ANSWERS TABLE -->
-
-                <div class="table-responsive">
-
-                    <table class="table answers-table">
-
-                        <thead>
-
-                            <tr>
-
-                                <th>Answer ID</th>
-                                <th>Answer Content</th>
-                                <th>Question</th>
-                                <th>User ID</th>
-                                <th>Status</th>
-                                <th>Submitted Date</th>
-                                <th>Manage</th>
-
-                            </tr>
-
-                        </thead>
+            </form>
 
 
-                        <tbody>
+            <!-- ANSWERS TABLE -->
 
-                            <?php if (!empty($answers)): ?>
+            <div class="table-responsive">
 
-                                <?php foreach ($answers as $answer): ?>
-
-                                    <tr>
-
-                                        <td>
-                                            #<?= e($answer['id']) ?>
-                                        </td>
+                <table class="table answers-table">
 
 
-                                        <td class="answer-content">
-                                            <?= e($answer['answer_text']) ?>
-                                        </td>
+                    <!-- TABLE HEADER -->
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Answer ID</th>
+
+                            <th>Answer Content</th>
+
+                            <th>Question</th>
+
+                            <th>User ID</th>
+
+                            <th>Status</th>
+
+                            <th>Submitted Date</th>
+
+                            <th>Manage</th>
+
+                        </tr>
+
+                    </thead>
 
 
-                                        <td>
-                                            <?= e($answer['question_title'] ?? 'Question unavailable') ?>
-                                        </td>
+                    <!-- TABLE BODY -->
+
+                    <tbody>
 
 
-                                        <td>
-                                            <?= e($answer['user_id']) ?>
-                                        </td>
+                        <?php if (!empty($answers)): ?>
 
 
-                                        <td>
+                            <?php foreach ($answers as $answer): ?>
 
-                                            <span class="status-badge <?= strtolower(e($answer['status'])) ?>">
-                                                <?= e($answer['status']) ?>
-                                            </span>
-
-                                        </td>
-
-
-                                        <td>
-                                            <?= e($answer['created_at']) ?>
-                                        </td>
-
-
-                                        <td>
-
-                                            <form method="POST" class="status-form">
-
-                                                <input
-                                                    type="hidden"
-                                                    name="csrf_token"
-                                                    value="<?= e($_SESSION['csrf_token']) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="answer_id"
-                                                    value="<?= e($answer['id']) ?>"
-                                                >
-
-                                                <select
-                                                    name="status"
-                                                    class="form-select form-select-sm"
-                                                >
-
-                                                    <?php foreach ($allowedStatuses as $item): ?>
-
-                                                        <option
-                                                            value="<?= e($item) ?>"
-                                                            <?= $answer['status'] === $item ? 'selected' : '' ?>
-                                                        >
-                                                            <?= e($item) ?>
-                                                        </option>
-
-                                                    <?php endforeach; ?>
-
-                                                </select>
-
-
-                                                <button
-                                                    type="submit"
-                                                    name="update_status"
-                                                    class="update-btn"
-                                                >
-                                                    Update
-                                                </button>
-
-                                            </form>
-
-                                        </td>
-
-                                    </tr>
-
-                                <?php endforeach; ?>
-
-                            <?php else: ?>
 
                                 <tr>
 
-                                    <td colspan="7" class="no-data">
 
-                                        <i class="bi bi-inbox"></i>
+                                    <!-- ANSWER ID -->
 
-                                        <p>No answers found.</p>
+                                    <td>
+
+                                        #<?= e($answer['id']) ?>
 
                                     </td>
 
+
+                                    <!-- ANSWER CONTENT -->
+
+                                    <td class="answer-content">
+
+                                        <?= e($answer['answer_text']) ?>
+
+                                    </td>
+
+
+                                    <!-- QUESTION TITLE -->
+
+                                    <td>
+
+                                        <?= e(
+                                            $answer['question_title']
+                                            ?? 'Question unavailable'
+                                        ) ?>
+
+                                    </td>
+
+
+                                    <!-- USER INFORMATION -->
+
+                                    <td>
+
+                                        <strong>
+                                            <?= e($answer['user_id']) ?>
+                                        </strong>
+
+                                        <br>
+
+                                        <small class="text-muted">
+
+                                            <?= e(
+                                                $answer['full_name']
+                                                ?? 'User unavailable'
+                                            ) ?>
+
+                                        </small>
+
+                                    </td>
+
+
+                                    <!-- SUBMISSION INFORMATION -->
+
+                                    <td>
+
+                                        <span class="status-badge submitted">
+
+                                            Submitted
+
+                                        </span>
+
+                                    </td>
+
+
+                                    <!-- SUBMITTED DATE -->
+
+                                    <td>
+
+                                        <?php if (!empty($answer['created_at'])): ?>
+
+                                            <?= e(
+                                                date(
+                                                    'd M Y, h:i A',
+                                                    strtotime($answer['created_at'])
+                                                )
+                                            ) ?>
+
+                                        <?php else: ?>
+
+                                            Not available
+
+                                        <?php endif; ?>
+
+                                    </td>
+
+
+                                    <!-- MANAGE -->
+
+                                    <td>
+
+                                        <span class="text-muted">—</span>
+
+                                    </td>
+
+
                                 </tr>
 
-                            <?php endif; ?>
 
-                        </tbody>
+                            <?php endforeach; ?>
 
-                    </table>
 
-                </div>
+                        <?php else: ?>
+
+
+                            <tr>
+
+                                <td colspan="7" class="no-data text-center">
+
+                                    <i class="bi bi-inbox"></i>
+
+                                    <p>No answers found.</p>
+
+                                </td>
+
+                            </tr>
+
+
+                        <?php endif; ?>
+
+
+                    </tbody>
+
+                </table>
 
             </div>
 
-        </main>
 
-    </div>
+        </div>
 
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    </main>
 
-    <script src="../assets/js/admin.js"></script>
-    <script src="../assets/js/answers.js"></script>
+</div>
+
+
+<!-- JAVASCRIPT -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="../assets/js/admin.js"></script>
+
+<script src="../assets/js/answers.js"></script>
+
 
 </body>
 
