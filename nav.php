@@ -129,56 +129,7 @@ $profileInitial = implode('', array_map(
             <a href="report.php" class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"<?= $currentPage === 'report.php' ? ' aria-current="page"' : '' ?>>Report</a>
             <a href="index.php#events" class="cc-nav-link">Events</a>
             <a href="about.php" class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"<?= $currentPage === 'about.php' ? ' aria-current="page"' : '' ?>>About</a>
-=======
-            <a href="index.php"
-                class="cc-nav-link<?= $currentPage === 'index.php' ? ' active' : '' ?>"
-                <?= $currentPage === 'index.php' ? 'aria-current="page"' : '' ?>>
-                Home
-            </a>
-
-            <a href="ask-question.php"
-                class="cc-nav-link<?= $currentPage === 'ask-question.php' ? ' active' : '' ?>"
-                <?= $currentPage === 'ask-question.php' ? 'aria-current="page"' : '' ?>>
-                Ask Question
-            </a>
-
-            <a href="question-history.php"
-                class="cc-nav-link<?= $currentPage === 'question-history.php' ? ' active' : '' ?>"
-                <?= $currentPage === 'question-history.php' ? 'aria-current="page"' : '' ?>>
-                Questions
-            </a>
-
-            <a href="answer.php"
-                class="cc-nav-link<?= $currentPage === 'answer.php' ? ' active' : '' ?>"
-                <?= $currentPage === 'answer.php' ? 'aria-current="page"' : '' ?>>
-                Answer
-            </a>
-
-            <a href="leaderboard.php"
-                class="cc-nav-link<?= $currentPage === 'leaderboard.php' ? ' active' : '' ?>"
-                <?= $currentPage === 'leaderboard.php' ? 'aria-current="page"' : '' ?>>
-                Leaderboard
-            </a>
-
-            <a href="report.php"
-                class="cc-nav-link<?= $currentPage === 'report.php' ? ' active' : '' ?>"
-                <?= $currentPage === 'report.php' ? 'aria-current="page"' : '' ?>>
-                Report
-            </a>
-
-            <a href="events.php"
-                class="cc-nav-link<?= $currentPage === 'events.php' ? ' active' : '' ?>"
-                <?= $currentPage === 'events.php' ? 'aria-current="page"' : '' ?>>
-                Events
-            </a>
-
-            <a href="about.php"
-                class="cc-nav-link<?= $currentPage === 'about.php' ? ' active' : '' ?>"
-                <?= $currentPage === 'about.php' ? 'aria-current="page"' : '' ?>>
-                About
-            </a>
->>>>>>> faa4019731f091dd86f7a25935753dbb552b96dc
-
+            
             <!-- MOBILE ACTIONS -->
             <div class="cc-mobile-actions">
                 <?php if (!$is_logged_in): ?>
