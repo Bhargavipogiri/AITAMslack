@@ -43,11 +43,14 @@ $sql = "
 
     LEFT JOIN (
         SELECT
-            user_id,
+            a.user_id,
             COUNT(*) AS answers_given
-        FROM answers
-        WHERE publication_status = 'APPROVED'
-        GROUP BY user_id
+        FROM answers a
+        INNER JOIN questions q
+            ON q.id = a.question_id
+           AND q.publication_status = 'APPROVED'
+        WHERE a.publication_status = 'APPROVED'
+        GROUP BY a.user_id
     ) a ON a.user_id = u.user_id
 
     WHERE u.status = 'active'
