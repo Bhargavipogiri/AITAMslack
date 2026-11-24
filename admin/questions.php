@@ -151,7 +151,7 @@ $sql = "
         ai.ai_decision,
         ai.ai_reason,
         ai.ai_confidence,
-        ai.category AS ai_category,
+        NULL AS ai_category,
         ai.detected_violations,
         ai.model AS ai_model,
         ai.api_status

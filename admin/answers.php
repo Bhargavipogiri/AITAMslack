@@ -34,15 +34,15 @@ $category = is_string($_GET['category'] ?? null)
     ? trim($_GET['category'])
     : '';
 
-$allowedStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
+$allowedStatuses = ['Pending', 'Published', 'Hidden'];
 
 $status = is_string($_GET['status'] ?? null)
     ? trim($_GET['status'])
-    : 'PENDING';
+    : 'Pending';
 
 $status = in_array($status, $allowedStatuses, true)
     ? $status
-    : 'PENDING';
+    : 'Pending';
 
 /* -------------------------------------------------
    FLASH MESSAGE AND CSRF
@@ -86,21 +86,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } else {
 
-        $publicationStatus = $action === 'approve'
-            ? 'APPROVED'
-            : 'REJECTED';
+        $answerStatus = $action === 'approve'
+            ? 'Published'
+            : 'Hidden';
 
         try {
 
             $pdo->beginTransaction();
 
+            /* FETCH ANSWER */
+
             $lookup = $pdo->prepare(
-                'SELECT
-                    a.question_id,
-                    q.publication_status AS question_publication_status
-                 FROM answers a
-                 INNER JOIN questions q ON q.id = a.question_id
-                 WHERE a.id = :id
+                'SELECT question_id
+                 FROM answers
+                 WHERE id = :id
                  FOR UPDATE'
             );
 
@@ -116,33 +115,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $questionId = (int)$answerDetails['question_id'];
 
-            if (
-                $publicationStatus === 'APPROVED' &&
-                $answerDetails['question_publication_status'] !== 'APPROVED'
-            ) {
-                throw new DomainException(
-                    'Approve the related question before publishing this answer.'
-                );
-            }
+            /* UPDATE ANSWER STATUS */
 
             $update = $pdo->prepare(
                 'UPDATE answers
-                 SET publication_status = :publication_status
+                 SET status = :status
                  WHERE id = :id'
             );
 
             $update->execute([
-                ':publication_status' => $publicationStatus,
+                ':status' => $answerStatus,
                 ':id' => $answerId
             ]);
 
-            if ($publicationStatus === 'APPROVED') {
+            /* UPDATE RELATED QUESTION STATUS */
+
+            if ($answerStatus === 'Published') {
 
                 $questionUpdate = $pdo->prepare(
                     "UPDATE questions
                      SET status = 'Answered'
                      WHERE id = :question_id
-                       AND publication_status = 'APPROVED'
                        AND status = 'Pending'"
                 );
 
@@ -151,21 +144,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
 
+            /* RECORD ADMIN MODERATION EVENT */
+
             recordModerationEvent(
                 $pdo,
                 'answer',
                 (int)$answerId,
                 'ADMIN',
-                $publicationStatus,
+                $answerStatus,
                 [],
                 (int)($_SESSION['admin_id'] ?? 0),
-                $publicationStatus
+                $answerStatus
             );
 
             $pdo->commit();
 
             $_SESSION['flash_message'] =
-                'Answer review decision saved.';
+                $answerStatus === 'Published'
+                    ? 'Answer published successfully.'
+                    : 'Answer hidden successfully.';
 
         } catch (Throwable $exception) {
 
@@ -180,11 +177,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             $_SESSION['flash_message'] =
-                $exception instanceof DomainException
-                    ? $exception->getMessage()
-                    : 'Unable to save the answer review decision.';
+                'Unable to save the answer review decision.';
         }
     }
+
+    /* REDIRECT WITH FILTERS */
 
     $redirectParams = [];
 
@@ -263,6 +260,8 @@ $answersToday = (int)($stats['answers_today'] ?? 0);
 $where = [];
 $params = [];
 
+/* SEARCH */
+
 if ($search !== '') {
 
     $where[] = "(
@@ -284,19 +283,29 @@ if ($search !== '') {
     $params[':answer_id'] = $searchValue;
 }
 
+/* CATEGORY FILTER */
+
 if ($category !== '') {
+
     $where[] = 'q.category = :category';
+
     $params[':category'] = $category;
 }
 
+/* STATUS FILTER */
+
 if ($status !== '') {
-    $where[] = 'a.publication_status = :publication_status';
-    $params[':publication_status'] = $status;
+
+    $where[] = 'a.status = :status';
+
+    $params[':status'] = $status;
 }
 
 $whereSql = $where
     ? 'WHERE ' . implode(' AND ', $where)
     : '';
+
+/* FETCH QUERY */
 
 $sql = "
     SELECT
@@ -304,7 +313,7 @@ $sql = "
         a.answer_text,
         a.question_id,
         a.user_id,
-        a.publication_status,
+        a.status,
         a.created_at,
 
         author.full_name AS author_name,
@@ -432,8 +441,11 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
                 <div class="answer-details">
+
                     <p>Total Answers</p>
+
                     <h3><?= e($totalAnswers) ?></h3>
+
                 </div>
 
             </div>
@@ -445,8 +457,11 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
                 <div class="answer-details">
+
                     <p>Questions with Answers</p>
+
                     <h3><?= e($answeredQuestions) ?></h3>
+
                 </div>
 
             </div>
@@ -458,8 +473,11 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
                 <div class="answer-details">
+
                     <p>Answer Contributors</p>
+
                     <h3><?= e($totalContributors) ?></h3>
+
                 </div>
 
             </div>
@@ -471,8 +489,11 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
 
                 <div class="answer-details">
+
                     <p>Answers Today</p>
+
                     <h3><?= e($answersToday) ?></h3>
+
                 </div>
 
             </div>
@@ -539,7 +560,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             value="<?= e($item) ?>"
                             <?= $status === $item ? 'selected' : '' ?>
                         >
-                            <?= e(ucfirst(strtolower($item))) ?>
+                            <?= e($item) ?>
                         </option>
 
                     <?php endforeach; ?>
@@ -549,6 +570,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <button type="submit" class="filter-btn">
 
                     <i class="bi bi-funnel"></i>
+
                     Filter
 
                 </button>
@@ -568,13 +590,15 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <thead>
 
                         <tr>
+
                             <th>Answer ID</th>
                             <th>Answer Content</th>
                             <th>Question</th>
                             <th>Author</th>
-                            <th>Publication</th>
+                            <th>Status</th>
                             <th>Submitted Date</th>
                             <th>Manage</th>
+
                         </tr>
 
                     </thead>
@@ -614,37 +638,47 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                             </p>
 
                                             <?php if (!empty($answer['ai_reason'])): ?>
+
                                                 <p>
                                                     <?= e($answer['ai_reason']) ?>
                                                 </p>
+
                                             <?php endif; ?>
 
                                             <?php if ($answer['ai_confidence'] !== null): ?>
+
                                                 <p>
                                                     Confidence:
                                                     <?= e($answer['ai_confidence']) ?>
                                                 </p>
+
                                             <?php endif; ?>
 
                                             <?php if ($answer['relevance_score'] !== null): ?>
+
                                                 <p>
                                                     Relevance:
                                                     <?= e($answer['relevance_score']) ?>
                                                 </p>
+
                                             <?php endif; ?>
 
                                             <?php if (!empty($answer['ai_model'])): ?>
+
                                                 <p>
                                                     Model:
                                                     <?= e($answer['ai_model']) ?>
                                                 </p>
+
                                             <?php endif; ?>
 
                                             <?php if (!empty($answer['detected_violations'])): ?>
+
                                                 <p>
                                                     Flags:
                                                     <?= e($answer['detected_violations']) ?>
                                                 </p>
+
                                             <?php endif; ?>
 
                                         </details>
@@ -700,15 +734,13 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                     </td>
 
-                                    <!-- PUBLICATION STATUS -->
+                                    <!-- STATUS -->
 
                                     <td>
 
-                                        <span class="status-badge <?= e(strtolower($answer['publication_status'])) ?>">
+                                        <span class="status-badge <?= e(strtolower($answer['status'])) ?>">
 
-                                            <?= e(
-                                                ucfirst(strtolower($answer['publication_status']))
-                                            ) ?>
+                                            <?= e($answer['status']) ?>
 
                                         </span>
 
@@ -717,12 +749,22 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <!-- SUBMITTED DATE -->
 
                                     <td>
-                                        <?= e(
-                                            date(
-                                                'd M Y, h:i A',
-                                                strtotime($answer['created_at'])
-                                            )
-                                        ) ?>
+
+                                        <?php if (!empty($answer['created_at'])): ?>
+
+                                            <?= e(
+                                                date(
+                                                    'd M Y, h:i A',
+                                                    strtotime($answer['created_at'])
+                                                )
+                                            ) ?>
+
+                                        <?php else: ?>
+
+                                            Not available
+
+                                        <?php endif; ?>
+
                                     </td>
 
                                     <!-- MANAGE -->
@@ -743,30 +785,30 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                 value="<?= e($answer['id']) ?>"
                                             >
 
-                                            <?php if ($answer['publication_status'] !== 'APPROVED'): ?>
+                                            <?php if ($answer['status'] !== 'Published'): ?>
 
                                                 <button
                                                     type="submit"
                                                     name="action"
                                                     value="approve"
                                                     class="update-btn"
-                                                    onclick="return confirm('Approve and publish this answer?')"
+                                                    onclick="return confirm('Publish this answer?')"
                                                 >
-                                                    Approve
+                                                    Publish
                                                 </button>
 
                                             <?php endif; ?>
 
-                                            <?php if ($answer['publication_status'] !== 'REJECTED'): ?>
+                                            <?php if ($answer['status'] !== 'Hidden'): ?>
 
                                                 <button
                                                     type="submit"
                                                     name="action"
                                                     value="reject"
                                                     class="btn btn-sm btn-outline-danger"
-                                                    onclick="return confirm('Reject this answer?')"
+                                                    onclick="return confirm('Hide this answer?')"
                                                 >
-                                                    Reject
+                                                    Hide
                                                 </button>
 
                                             <?php endif; ?>
@@ -812,6 +854,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 <script src="../assets/js/admin.js"></script>
+
 <script src="../assets/js/answers.js"></script>
 
 </body>
