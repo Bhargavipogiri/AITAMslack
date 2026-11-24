@@ -91,7 +91,7 @@ try {
 
     // Normal user login
     $stmt = $pdo->prepare(
-        'SELECT user_id, full_name, email, department, role, password_hash, status
+        'SELECT user_id, full_name, email, department, role, profile_image, password_hash, status
          FROM users
          WHERE email = :email
          LIMIT 1'
@@ -134,9 +134,7 @@ try {
     $_SESSION['email'] = $user['email'];
     $_SESSION['department'] = $user['department'];
     $_SESSION['role'] = $user['role'];
-
-    // No profile_image column in users table
-    $_SESSION['profile_image'] = '';
+    $_SESSION['profile_image'] = $user['profile_image'] ?? '';
 
     header('Location: ../index.php');
     exit;

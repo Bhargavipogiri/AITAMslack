@@ -180,8 +180,15 @@ $defaultProfile = [
     'department' => (string)($user['department'] ?? ''),
     'role' => (string)($user['role'] ?? ''),
     'points' => (float)($user['points'] ?? 0),
-    'profile_image' => (string)($user['profile_image'] ?? ''),
+    'profile_image' => '',
 ];
+$storedProfileImage = trim((string)($user['profile_image'] ?? ''));
+$profileImageFile = $storedProfileImage !== ''
+    ? ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $storedProfileImage), DIRECTORY_SEPARATOR)
+    : '';
+if ($profileImageFile !== '' && is_file(__DIR__ . DIRECTORY_SEPARATOR . $profileImageFile)) {
+    $defaultProfile['profile_image'] = $storedProfileImage;
+}
 $displayProfileName = trim($defaultProfile['name']);
 if (strcasecmp((string)$defaultProfile['role'], 'faculty') === 0) {
     $displayProfileName = trim(preg_replace('/^Sri\s+/iu', '', $displayProfileName) ?? $displayProfileName);
@@ -330,6 +337,44 @@ select:focus-visible {
 
 .photo-upload:hover {
   background:var(--navy);
+}
+
+.photo-menu {
+  position:absolute;
+  z-index:30;
+  bottom:48px;
+  right:-82px;
+  width:170px;
+  padding:6px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface);
+  box-shadow:0 10px 30px rgba(15,23,42,.18);
+}
+
+.photo-menu[hidden] {
+  display:none;
+}
+
+.photo-menu button {
+  width:100%;
+  border:0;
+  border-radius:7px;
+  padding:9px 10px;
+  background:transparent;
+  color:var(--text-primary);
+  text-align:left;
+  cursor:pointer;
+  font-size:13px;
+  font-weight:700;
+}
+
+.photo-menu button:hover {
+  background:var(--bg-app);
+}
+
+.photo-menu .remove-photo {
+  color:var(--color-danger);
 }
 
 #photoInput {
@@ -921,6 +966,11 @@ body {
                   type="button"
                   aria-label="Upload profile picture">+</button>
 
+          <div class="photo-menu" id="photoMenu" role="menu" hidden>
+            <button type="button" id="updatePhotoButton" role="menuitem">Update Photo</button>
+            <button type="button" id="removePhotoButton" class="remove-photo" role="menuitem">Remove Photo</button>
+          </div>
+
           <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp">
         </div>
 
@@ -1084,10 +1134,16 @@ function renderAvatar() {
   if (imageURL) {
     const image = document.createElement("img");
     image.src = imageURL;
-    image.alt = "Profile picture";
+    image.alt = "";
+    image.addEventListener("error", () => {
+      currentPhoto = "";
+      profile.profile_image = "";
+      renderAvatar();
+      syncNavbarProfile();
+    }, { once: true });
     avatar.appendChild(image);
   } else {
-    avatar.textContent = initials(displayName());
+    avatar.textContent = initials(profile.name);
   }
 }
 
@@ -1131,37 +1187,49 @@ function renderProfile() {
   $("copyEmailButton").style.opacity = profile.email ? "1" : ".55";
 }
 
+function syncNavbarAvatar(photoUrl, fullName) {
+  const trigger = document.querySelector("#profileMenuBtn");
+  if (!trigger) return;
+
+  const existingAvatar = trigger.querySelector(".nav-avatar-img, .nav-avatar-fallback");
+  if (existingAvatar) existingAvatar.remove();
+
+  const avatarURL = safeURL(photoUrl || "");
+  if (avatarURL) {
+    const image = document.createElement("img");
+    image.className = "nav-avatar-img";
+    image.src = avatarURL;
+    image.alt = String(fullName || "").trim();
+    image.onerror = function () {
+      this.onerror = null;
+      const fallback = document.createElement("span");
+      fallback.className = "nav-avatar-fallback";
+      fallback.setAttribute("aria-hidden", "true");
+      fallback.textContent = initials(fullName);
+      this.replaceWith(fallback);
+    };
+    trigger.prepend(image);
+  } else {
+    const fallback = document.createElement("span");
+    fallback.className = "nav-avatar-fallback";
+    fallback.setAttribute("aria-hidden", "true");
+    fallback.textContent = initials(fullName);
+    trigger.prepend(fallback);
+  }
+}
+
 function syncNavbarProfile() {
   const name = displayName();
   const avatarURL = safeURL(profile.profile_image || "");
-  const avatarInitial = Array.from(name)[0] || "?";
 
   document.querySelectorAll(".nav-profile-wrapper").forEach(wrapper => {
     const nameElement = wrapper.querySelector(".nav-user-name");
     const roleElement = wrapper.querySelector(".nav-user-role");
     if (nameElement) nameElement.textContent = name;
     if (roleElement) roleElement.textContent = roleLabel(profile.role);
-
-    let image = wrapper.querySelector(".nav-avatar-img");
-    let fallback = wrapper.querySelector(".nav-avatar-fallback");
-    if (avatarURL) {
-      if (!image) {
-        image = document.createElement("img");
-        image.className = "nav-avatar-img";
-        image.alt = "";
-        fallback?.replaceWith(image);
-      }
-      image.src = avatarURL;
-    } else {
-      if (image) {
-        fallback = document.createElement("span");
-        fallback.className = "nav-avatar-fallback";
-        fallback.setAttribute("aria-hidden", "true");
-        image.replaceWith(fallback);
-      }
-      if (fallback) fallback.textContent = avatarInitial;
-    }
   });
+
+  syncNavbarAvatar(profile.profile_image || "", name);
 }
 
 
@@ -1422,8 +1490,71 @@ $("viewQuestionsButton").addEventListener("click", () => {
 
 /* PHOTO UPLOAD */
 
-$("photoButton").addEventListener("click", () => {
+const photoButton = $("photoButton");
+const photoMenu = $("photoMenu");
+
+function closePhotoMenu() {
+  photoMenu.hidden = true;
+  photoButton.setAttribute("aria-expanded", "false");
+}
+
+photoButton.setAttribute("aria-haspopup", "menu");
+photoButton.setAttribute("aria-expanded", "false");
+photoButton.addEventListener("click", event => {
+  event.stopPropagation();
+  if (!safeURL(currentPhoto)) {
+    closePhotoMenu();
+    $("photoInput").click();
+    return;
+  }
+
+  const willOpen = photoMenu.hidden;
+  photoMenu.hidden = !willOpen;
+  photoButton.setAttribute("aria-expanded", String(willOpen));
+});
+
+$("updatePhotoButton").addEventListener("click", event => {
+  event.stopPropagation();
+  closePhotoMenu();
   $("photoInput").click();
+});
+
+$("removePhotoButton").addEventListener("click", async event => {
+  event.stopPropagation();
+  closePhotoMenu();
+
+  const formData = new FormData();
+  formData.append("action", "remove");
+
+  try {
+    const response = await fetch("auth/upload_avatar.php", {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: formData
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to remove your profile picture.");
+    }
+
+    profile.profile_image = "";
+    currentPhoto = "";
+    renderAvatar();
+    syncNavbarProfile();
+    showToast("Profile picture removed!");
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "Unable to remove your profile picture.", "error");
+  }
+});
+
+document.addEventListener("click", event => {
+  if (!photoMenu.hidden && !photoMenu.contains(event.target) && event.target !== photoButton) {
+    closePhotoMenu();
+  }
+});
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") closePhotoMenu();
 });
 
 $("photoInput").addEventListener("change", async event => {
