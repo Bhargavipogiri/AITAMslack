@@ -1,7 +1,5 @@
 
-/* =================================
-   QUESTION MANAGEMENT PAGE
-================================= */
+/* Question Management Page */
 
 .questions-page {
     padding: 25px;
@@ -9,6 +7,7 @@
 }
 
 /* Page Heading */
+
 .questions-page .page-heading {
     margin-bottom: 25px;
 }
@@ -23,6 +22,7 @@
 }
 
 /* Statistics Cards */
+
 .questions-page .question-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -36,9 +36,10 @@
     gap: 12px;
     min-width: 0;
     background: white;
-    padding: 16px;
-    border-radius: 10px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid #dce5ef;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
 }
 
 .questions-page .question-card i {
@@ -46,7 +47,7 @@
     font-size: 26px;
     color: var(--secondary-color);
     background: var(--light-color);
-    padding: 10px;
+    padding: 12px;
     border-radius: 10px;
 }
 
@@ -62,11 +63,17 @@
 }
 
 /* Questions Panel */
+
 .questions-page .questions-panel {
     background: white;
-    padding: 22px;
-    border-radius: 10px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+    padding: 25px;
+    border-radius: 15px;
+    border: 1px solid #dce5ef;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+.questions-page .panel-heading {
+    margin-bottom: 20px;
 }
 
 .questions-page .panel-heading h4 {
@@ -76,9 +83,11 @@
 
 .questions-page .panel-heading p {
     color: #777;
+    margin-bottom: 0;
 }
 
 /* Search and Filters */
+
 .questions-page .question-filters {
     display: flex;
     flex-wrap: wrap;
@@ -88,9 +97,12 @@
 
 .questions-page .question-filters input,
 .questions-page .question-filters select {
-    padding: 9px 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    padding: 12px 14px;
+    border: 1px solid #cbd9e8;
+    border-radius: 10px;
+    outline: none;
+    background: white;
+    color: #333;
 }
 
 .questions-page .question-filters input {
@@ -98,45 +110,104 @@
     min-width: 200px;
 }
 
+.questions-page .question-filters input:focus,
+.questions-page .question-filters select:focus {
+    border-color: var(--secondary-color);
+}
+
 .questions-page .question-filters button {
     background: var(--secondary-color);
     color: white;
     border: none;
-    border-radius: 6px;
-    padding: 9px 18px;
+    border-radius: 10px;
+    padding: 10px 22px;
+}
+
+.questions-page .question-filters button:hover {
+    opacity: 0.9;
 }
 
 .questions-page .question-filters a {
     text-decoration: none;
     color: var(--secondary-color);
-    padding: 9px;
+    border: 1px solid #cbd9e8;
+    border-radius: 10px;
+    padding: 10px 16px;
 }
 
 /* Questions Table */
+
+.questions-page .questions-table {
+    margin-bottom: 0;
+}
+
 .questions-page .questions-table th {
-    background: var(--primary-color);
-    color: white;
+    background: #eaf2fa;
+    color: #142d4e;
     white-space: nowrap;
+    padding: 16px;
+    border-bottom: 1px solid #cbd9e8;
 }
 
 .questions-page .questions-table td {
     vertical-align: middle;
+    padding: 15px;
+    color: #526783;
+    border-color: #dce5ef;
+}
+
+.questions-page .question-title {
+    color: var(--primary-color);
+    font-weight: 600;
+    min-width: 180px;
+}
+
+/* Question Description */
+
+.questions-page .question-details {
+    margin-top: 5px;
+    font-size: 12px;
+}
+
+.questions-page .question-details summary {
+    color: var(--secondary-color);
+    cursor: pointer;
+}
+
+.questions-page .question-details p {
+    margin-top: 8px;
+    max-width: 350px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: #666;
 }
 
 /* Category */
+
 .questions-page .category-label {
+    display: inline-block;
     background: var(--light-color);
     color: var(--primary-color);
-    padding: 5px 10px;
+    padding: 6px 12px;
     border-radius: 20px;
     font-size: 12px;
 }
 
-/* Question Status */
+/* Status */
+
 .questions-page .question-status {
-    padding: 5px 10px;
+    display: inline-block;
+    min-width: 85px;
+    text-align: center;
+    padding: 7px 12px;
     border-radius: 20px;
     font-size: 12px;
+    font-weight: 600;
+}
+
+.questions-page .question-status.pending {
+    background: #fff3d9;
+    color: #a66b00;
 }
 
 .questions-page .question-status.published {
@@ -150,8 +221,10 @@
 }
 
 /* Action Buttons */
+
 .questions-page .question-actions {
     display: flex;
+    align-items: center;
     gap: 7px;
 }
 
@@ -160,11 +233,17 @@
 }
 
 .questions-page .question-actions button {
-    border: 1px solid #ddd;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #dce5ef;
     background: white;
     color: var(--secondary-color);
-    padding: 6px 9px;
-    border-radius: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.questions-page .question-actions button:hover {
+    background: var(--light-color);
 }
 
 .questions-page .question-actions .hide-btn {
@@ -175,19 +254,47 @@
     color: #23804b;
 }
 
-.questions-page .question-actions button:hover {
-    background: var(--light-color);
+/* Pagination */
+
+.questions-page .pagination-container {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 22px;
 }
 
-/* Tablet */
+.questions-page .pagination-container a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #dce5ef;
+    border-radius: 7px;
+    text-decoration: none;
+    color: var(--secondary-color);
+}
+
+.questions-page .pagination-container a.active {
+    background: var(--secondary-color);
+    color: white;
+    border-color: var(--secondary-color);
+}
+
+/* Responsive Design */
+
 @media (max-width: 992px) {
+
     .questions-page .question-stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
 }
 
-/* Mobile */
 @media (max-width: 576px) {
+
     .questions-page {
         padding: 12px;
     }
@@ -199,4 +306,20 @@
     .questions-page .question-card {
         padding: 15px;
     }
+
+    .questions-page .questions-panel {
+        padding: 15px;
+    }
+
+    .questions-page .question-filters {
+        flex-direction: column;
+    }
+
+    .questions-page .question-filters input,
+    .questions-page .question-filters select,
+    .questions-page .question-filters button,
+    .questions-page .question-filters a {
+        width: 100%;
+    }
+
 }

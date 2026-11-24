@@ -1,3 +1,4 @@
+
 <?php
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -11,6 +12,7 @@ function admin_csrf_token(): string
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
+
     return $_SESSION['csrf_token'];
 }
 
@@ -24,16 +26,17 @@ function admin_csrf_verify(?string $token): bool
 function require_admin(): void
 {
     if (empty($_SESSION['admin_id'])) {
-        header('Location: ../login.php');
+        header('Location: /AITAMslack/admin/login.php');
         exit;
     }
 
     $status = $_SESSION['admin_status'] ?? '';
+
     if ($status !== 'active') {
         session_unset();
         session_destroy();
-        header('Location: ../login.php?error=blocked');
+
+        header('Location: /AITAMslack/admin/login.php?error=blocked');
         exit;
     }
 }
-
