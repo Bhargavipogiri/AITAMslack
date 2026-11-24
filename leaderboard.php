@@ -1,8 +1,7 @@
-
 <?php
 session_start();
 
-require_once __DIR__ . '/lesder-db.php';
+require_once 'lesder-db.php';
 
 /* Escape output safely */
 function e($value) {
@@ -10,46 +9,62 @@ function e($value) {
 }
 
 try {
-    $sql = "
+    /*
+     * All-time leaderboard.
+     * One point is awarded for each ADMIN-APPROVED answer.
+     * Students with zero approved answers remain on the leaderboard.
+     * Question count is informational only and does not affect points.
+     */
+$sql = "
+    SELECT
+        u.user_id AS id,
+        u.full_name AS name,
+        u.department,
+        u.role,
+        NULL AS year,
+        NULL AS profile_image,
+
+        COALESCE(q.questions_asked, 0) AS questions_asked,
+
+        COALESCE(a.answers_given, 0) AS answers_given,
+
+        COALESCE(a.answers_given, 0) AS total_points
+
+    FROM users u
+
+    LEFT JOIN (
         SELECT
-            s.id,
-            s.name,
-            s.department,
-            s.year,
-            s.profile_image,
+            user_id,
+            COUNT(*) AS questions_asked
+        FROM questions
+        WHERE publication_status = 'APPROVED'
+        GROUP BY user_id
+    ) q ON q.user_id = u.user_id
 
-            COALESCE(q.questions_asked, 0) AS questions_asked,
-            COALESCE(a.answers_given, 0) AS answers_given,
+    LEFT JOIN (
+        SELECT
+            user_id,
+            COUNT(*) AS answers_given
+        FROM answers
+        WHERE publication_status = 'APPROVED'
+        GROUP BY user_id
+    ) a ON a.user_id = u.user_id
 
-            COALESCE(q.questions_asked, 0) AS total_points
+    WHERE u.status = 'active'
+      AND u.role IN ('student', 'faculty', 'alumni', 'fresher')
 
-        FROM students s
-
-        LEFT JOIN (
-            SELECT user_id, COUNT(*) AS questions_asked
-            FROM questions
-            GROUP BY user_id
-        ) q ON q.user_id = s.id
-
-        LEFT JOIN (
-            SELECT user_id, COUNT(*) AS answers_given
-            FROM answers
-            GROUP BY user_id
-        ) a ON a.user_id = s.id
-
-        ORDER BY
-            total_points DESC,
-            answers_given DESC,
-            s.name ASC
-    ";
+    ORDER BY
+        total_points DESC,
+        u.full_name ASC
+";
 
     $stmt = $conn->prepare($sql);
     $stmt->execute();
 
     $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-} catch (PDOException $error) {
-    error_log($error->getMessage());
+} catch (PDOException $e) {
+    error_log($e->getMessage());
     die("Unable to load leaderboard. Please try again later.");
 }
 
@@ -67,7 +82,6 @@ function getRank($rank) {
     return $rank;
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">

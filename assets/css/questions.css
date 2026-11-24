@@ -210,12 +210,14 @@
     color: #a66b00;
 }
 
-.questions-page .question-status.published {
+.questions-page .question-status.published,
+.questions-page .question-status.approved {
     background: #e1f5e8;
     color: #23804b;
 }
 
-.questions-page .question-status.hidden {
+.questions-page .question-status.hidden,
+.questions-page .question-status.rejected {
     background: #ffe5e2;
     color: #bd4035;
 }

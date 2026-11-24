@@ -3,7 +3,6 @@
 
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/ai_helpers.php';
-require_once __DIR__ . '/includes/openai_moderation.php';
 
 $user = require_login();
 $userId = (int)($user['user_id'] ?? $user['id'] ?? 0);
@@ -28,12 +27,10 @@ $textLength = static function (string $value): int {
 ===================================== */
 
 $categories = [
-    'Programming',
+    'Admissions',
     'Academics',
-    'Projects',
     'Placements',
-    'Technical',
-    'General'
+    'Campus Life',
 ];
 
 /* =====================================
@@ -80,149 +77,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     }
 
-    /* =====================================
-       RUN PHASE 16 CHECKS
-    ===================================== */
-
     if (!$errors) {
-
-        $diagnosticId = cc_phase16_diagnostic_id();
-
-        cc_phase16_log_diagnostic(
-            $diagnosticId,
-            'question_submission',
-            [
-                'stage' => 'submission_start',
-                'request_reached_openai' => false,
-                'database_insert_succeeded' => false,
-            ]
-        );
-
-        // Safety scan
-        $risk = cc_phase16_risk_scan(
-            $old['title'],
-            $old['body'],
-            null,
-            $diagnosticId
-        );
-
-        // Question quality check
-        $quality = cc_phase16_question_quality_for_submission(
-            $old['title'],
-            $old['body']
-        );
-
-        // Final decision
-        $decision = cc_phase16_question_decision(
-            $risk,
-            $quality
-        );
-
-        $canPersist = cc_phase16_question_can_persist(
-            $risk,
-            $quality,
-            $decision
-        );
-
-        /* =====================================
-           HANDLE REJECTED OR UNAVAILABLE CHECKS
-        ===================================== */
-
-        if (!$canPersist) {
-
-            $checksUnavailable =
-                empty($risk['api_ok']) ||
-                empty($quality['api_ok']);
-
-            if (empty($risk['api_ok'])) {
-
-                $reasonCode = 'safety_unavailable';
-
-            } elseif (!empty($risk['flagged'])) {
-
-                $reasonCode = 'safety_flagged';
-
-            } elseif (empty($quality['api_ok'])) {
-
-                $reasonCode = 'quality_unavailable';
-
-            } elseif (
-                ($quality['decision'] ?? '') === 'block' &&
-                (float)($quality['confidence'] ?? 0) >= 0.85
-            ) {
-
-                $reasonCode = 'quality_blocked';
-
-            } else {
-
-                $reasonCode = 'quality_uncertain';
-
-            }
-
-            cc_phase16_log_submission_decision(
-                'question',
-                $userId,
-                $checksUnavailable ? 'retry' : 'blocked',
-                $reasonCode,
-                !$checksUnavailable
-            );
-
-            cc_phase16_log_diagnostic(
-                $diagnosticId,
-                'question_submission',
-                [
-                    'stage' => 'checks_rejected_or_unavailable',
-                    'moderation_flagged' => !empty($risk['flagged']),
-                    'relevance_decision_valid' => !empty($quality['api_ok']),
-                    'database_insert_succeeded' => false,
-                    'error_category' => $reasonCode,
-                ]
-            );
-
-            if ($checksUnavailable) {
-
-                set_flash(
-                    'error',
-                    'Required safety and question-quality checks could not be completed. Your question was not saved. Please try again later. Reference: ' . $diagnosticId
-                );
-
-            } elseif (!empty($risk['flagged'])) {
-
-                set_flash(
-                    'error',
-                    'Your question was not saved because it did not pass the safety check. Reference: ' . $diagnosticId
-                );
-
-            } elseif ($reasonCode === 'quality_blocked') {
-
-                set_flash(
-                    'error',
-                    'This submission appears to be spam or not a genuine question. Please revise it.'
-                );
-
-            } else {
-
-                set_flash(
-                    'error',
-                    'We could not confidently verify this question. Please add more context and try again.'
-                );
-
-            }
-
-            redirect('ask-question.php');
-        }
-
-        /* =====================================
-           SAVE APPROVED QUESTION
-        ===================================== */
-
         $connection = db();
 
         try {
+            if (!consumeModerationSubmissionToken(
+                'question',
+                0,
+                $_POST['submission_token'] ?? null
+            )) {
+                throw new InvalidArgumentException(
+                    'This question form has already been submitted or expired.'
+                );
+            }
+
+            $moderation = groqRateLimitAllowed($userId, 'question')
+                ? moderateQuestion(
+                    $old['title'],
+                    $old['body']
+                )
+                : groqModerationFailure('question', 'rate_limited');
 
             $connection->beginTransaction();
 
-            // Insert into existing questions table
             $insert = $connection->prepare(
                 'INSERT INTO questions
                 (
@@ -230,17 +107,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     question_title,
                     question_description,
                     category,
-                    status
+                    status,
+                    publication_status,
+                    created_at
                 )
-                VALUES (?, ?, ?, ?, ?)'
+                VALUES (?, ?, ?, ?, ?, ?, NOW())'
             );
+
+            $publicationStatus = moderationPublicationStatus($moderation);
 
             $insert->execute([
                 $userId,
                 $old['title'],
                 $old['body'],
                 $selectedCategory,
-                'Pending'
+                'Pending',
+                $publicationStatus
             ]);
 
             $questionId = (int)$connection->lastInsertId();
@@ -251,39 +133,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
 
-            // Record moderation information
-            cc_phase16_record_moderation(
+            recordModerationEvent(
+                $connection,
                 'question',
                 $questionId,
-                $risk,
-                $quality,
-                $decision['status'] ?? 'approved'
+                'AI',
+                $publicationStatus,
+                $moderation
             );
 
             $connection->commit();
 
-            cc_phase16_log_submission_decision(
-                'question',
-                $userId,
-                'approved',
-                'checks_passed',
-                true
-            );
-
-            cc_phase16_log_diagnostic(
-                $diagnosticId,
-                'question_submission',
-                [
-                    'stage' => 'database_commit',
-                    'moderation_flagged' => false,
-                    'relevance_decision_valid' => true,
-                    'database_insert_succeeded' => true,
-                ]
-            );
-
             set_flash(
                 'success',
-                'Your question has been submitted successfully after automated safety and quality checks.'
+                $publicationStatus === 'APPROVED'
+                    ? 'Your question has been published successfully!'
+                    : 'Your question could not be automatically approved because it may contain inappropriate or unrelated content. It has been forwarded to the administrator for review.'
             );
 
             redirect('question-history.php');
@@ -294,42 +159,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $connection->rollBack();
             }
 
-            $privateText = array_values(
-                array_filter(
-                    [$old['title'], $old['body']],
-                    static fn($value) => $value !== ''
-                )
+            $privateText = array_values(array_filter(
+                [$old['title'], $old['body']],
+                static fn($value) => $value !== ''
+            ));
+            $safeError = str_replace(
+                $privateText,
+                '[content redacted]',
+                $exception->getMessage()
             );
-
-            $safeError = cc_openai_sanitize_error(
-                str_replace(
-                    $privateText,
-                    '[content redacted]',
-                    $exception->getMessage()
-                )
-            );
-
-            cc_phase16_log_diagnostic(
-                $diagnosticId,
-                'question_submission',
-                [
-                    'stage' => 'database_or_transaction_failure',
-                    'database_insert_succeeded' => false,
-                    'sqlstate' => $exception instanceof PDOException
-                        ? (string)$exception->getCode()
-                        : '',
-                    'error_category' => get_class($exception),
-                    'error_message' => $safeError,
-                ]
-            );
+            $safeError = preg_replace('/[\r\n\t]+/', ' ', $safeError) ?? '';
 
             error_log(
-                'Question submission failed: ' . $safeError
+                'Question submission failed: ' . substr($safeError, 0, 1000)
             );
 
-            $errors[] =
-                'The question could not be published. It was not saved. Reference: ' .
-                $diagnosticId;
+            $errors[] = $exception instanceof InvalidArgumentException
+                ? 'This form was already submitted or has expired. Refresh the page and try again.'
+                : 'The question could not be saved. Please try again later.';
         }
     }
 }
@@ -375,7 +222,7 @@ require __DIR__ . '/includes/header.php';
 
             <?php if ($successMessage !== ''): ?>
 
-                <div class="cc-alert" role="status">
+                <div class="cc-alert <?= str_starts_with($successMessage, 'Your question has been published') ? 'cc-published-notice' : 'cc-review-notice' ?>" role="status">
                     <?= e($successMessage) ?>
                 </div>
 
@@ -418,6 +265,11 @@ require __DIR__ . '/includes/header.php';
             >
 
                 <?= csrf_field() ?>
+                <input
+                    type="hidden"
+                    name="submission_token"
+                    value="<?= e(moderationSubmissionToken('question')) ?>"
+                >
 
                 <div class="cc-card-heading">
 
@@ -433,8 +285,6 @@ require __DIR__ . '/includes/header.php';
                         </p>
 
                     </div>
-
-                    <span class="cc-ai-badge">✦ AI checked</span>
 
                 </div>
 
@@ -575,11 +425,8 @@ Which subject, technology, department, or process is involved?"
                 </div>
 
                 <p class="cc-submit-note">
-
-                    Your question is checked before it is saved.
-                    If the required checks fail or are unavailable,
-                    it will not be saved.
-
+                    Safe and relevant questions are published automatically.
+                    Uncertain or flagged questions are sent to an administrator for review.
                 </p>
 
             </form>
@@ -655,29 +502,6 @@ Which subject, technology, department, or process is involved?"
                     </li>
 
                 </ol>
-
-            </article>
-
-            <article class="cc-side-card cc-ai-card">
-
-                <div class="cc-ai-heading">
-
-                    <i></i>
-
-                    <strong>AI moderation enabled</strong>
-
-                </div>
-
-                <p>
-                    Questions are screened for safety and genuine
-                    question quality before publishing.
-                </p>
-
-                <span>✓ Safety screening</span>
-
-                <span>✓ Question quality screening</span>
-
-                <span>✓ Server-side API processing</span>
 
             </article>
 

@@ -14,13 +14,29 @@ $profileRole = (string)($_SESSION['role'] ?? '');
 if (strcasecmp(trim($profileRole), 'faculty') === 0) {
     $profileName = trim(preg_replace('/^Sri\s+/iu', '', $profileName) ?? $profileName);
 }
-$profileImage = $_SESSION['profile_image'] ?? '';
-$profileImagePath = is_string($profileImage) ? trim($profileImage) : '';
+$profile_image = $_SESSION['profile_image'] ?? '';
+$profileImagePath = is_string($profile_image) ? trim($profile_image) : '';
 $profileFilePath = $profileImagePath !== ''
     ? ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $profileImagePath), DIRECTORY_SEPARATOR)
     : '';
-$hasProfileImage = $profileFilePath !== '' && is_file(__DIR__ . DIRECTORY_SEPARATOR . $profileFilePath);
-$profileInitial = preg_match('/^./us', $profileName, $initialMatch) ? $initialMatch[0] : '?';
+$projectRoot = realpath(__DIR__);
+$documentRoot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
+$projectUrlBase = '';
+if ($projectRoot !== false && $documentRoot !== false) {
+    $normalizedProjectRoot = str_replace('\\', '/', $projectRoot);
+    $normalizedDocumentRoot = rtrim(str_replace('\\', '/', $documentRoot), '/');
+    if (stripos($normalizedProjectRoot, $normalizedDocumentRoot . '/') === 0) {
+        $projectUrlBase = substr($normalizedProjectRoot, strlen($normalizedDocumentRoot));
+    }
+}
+$profileImageUrl = rtrim($projectUrlBase, '/') . '/' . str_replace('\\', '/', $profileFilePath);
+$hasProfileImage = $profileFilePath !== ''
+    && $projectRoot !== false
+    && is_file($projectRoot . DIRECTORY_SEPARATOR . $profileFilePath);
+$profileInitial = implode('', array_map(
+    static fn($word) => mb_strtoupper(mb_substr($word, 0, 1, 'UTF-8'), 'UTF-8'),
+    array_slice(preg_split('/\s+/', trim($profileName), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 2)
+)) ?: '?';
 ?>
 <!-- College Connect Navbar -->
 
@@ -47,19 +63,32 @@ if (strcasecmp(trim($profileRole), 'faculty') === 0) {
     );
 }
 
-$profileImage = $_SESSION['profile_image'] ?? '';
-$profileImagePath = is_string($profileImage) ? trim($profileImage) : '';
+$profile_image = $_SESSION['profile_image'] ?? '';
+$profileImagePath = is_string($profile_image) ? trim($profile_image) : '';
 
 $profileFilePath = $profileImagePath !== ''
     ? ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $profileImagePath), DIRECTORY_SEPARATOR)
     : '';
 
+$projectRoot = realpath(__DIR__);
+$documentRoot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '');
+$projectUrlBase = '';
+if ($projectRoot !== false && $documentRoot !== false) {
+    $normalizedProjectRoot = str_replace('\\', '/', $projectRoot);
+    $normalizedDocumentRoot = rtrim(str_replace('\\', '/', $documentRoot), '/');
+    if (stripos($normalizedProjectRoot, $normalizedDocumentRoot . '/') === 0) {
+        $projectUrlBase = substr($normalizedProjectRoot, strlen($normalizedDocumentRoot));
+    }
+}
+$profileImageUrl = rtrim($projectUrlBase, '/') . '/' . str_replace('\\', '/', $profileFilePath);
 $hasProfileImage = $profileFilePath !== ''
-    && is_file(__DIR__ . DIRECTORY_SEPARATOR . $profileFilePath);
+    && $projectRoot !== false
+    && is_file($projectRoot . DIRECTORY_SEPARATOR . $profileFilePath);
 
-$profileInitial = preg_match('/^./us', $profileName, $initialMatch)
-    ? $initialMatch[0]
-    : '?';
+$profileInitial = implode('', array_map(
+    static fn($word) => mb_strtoupper(mb_substr($word, 0, 1, 'UTF-8'), 'UTF-8'),
+    array_slice(preg_split('/\s+/', trim($profileName), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 2)
+)) ?: '?';
 ?>
 
 <!-- College Connect Navbar -->
@@ -148,13 +177,14 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch)
                 <?php else: ?>
 
                     <div class="nav-profile-wrapper">
-                        <button class="nav-profile-trigger" type="button"
+                        <button class="nav-profile-trigger" id="profileMenuBtn" type="button"
                             aria-expanded="false" aria-haspopup="true">
 
                             <?php if ($hasProfileImage): ?>
                                 <img class="nav-avatar-img"
-                                    src="<?= htmlspecialchars($profileImagePath, ENT_QUOTES, 'UTF-8') ?>"
-                                    alt="">
+                                    src="<?= htmlspecialchars($profileImageUrl, ENT_QUOTES, 'UTF-8') ?>"
+                                    alt=""
+                                    onerror="this.onerror=null;this.outerHTML='<span class=&quot;nav-avatar-fallback&quot; aria-hidden=&quot;true&quot;><?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?></span>'">
                             <?php else: ?>
                                 <span class="nav-avatar-fallback" aria-hidden="true">
                                     <?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?>
@@ -214,8 +244,9 @@ $profileInitial = preg_match('/^./us', $profileName, $initialMatch)
 
                         <?php if ($hasProfileImage): ?>
                             <img class="nav-avatar-img"
-                                src="<?= htmlspecialchars($profileImagePath, ENT_QUOTES, 'UTF-8') ?>"
-                                alt="">
+                                src="<?= htmlspecialchars($profileImageUrl, ENT_QUOTES, 'UTF-8') ?>"
+                                alt=""
+                                onerror="this.onerror=null;this.outerHTML='<span class=&quot;nav-avatar-fallback&quot; aria-hidden=&quot;true&quot;><?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?></span>'">
                         <?php else: ?>
                             <span class="nav-avatar-fallback" aria-hidden="true">
                                 <?= htmlspecialchars($profileInitial, ENT_QUOTES, 'UTF-8') ?>
