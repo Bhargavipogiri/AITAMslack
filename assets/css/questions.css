@@ -25,26 +25,28 @@
 /* Statistics Cards */
 .questions-page .question-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 15px;
     margin-bottom: 25px;
 }
 
 .questions-page .question-card {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
+    min-width: 0;
     background: white;
-    padding: 20px;
+    padding: 16px;
     border-radius: 10px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.05);
 }
 
 .questions-page .question-card i {
-    font-size: 28px;
+    flex-shrink: 0;
+    font-size: 26px;
     color: var(--secondary-color);
     background: var(--light-color);
-    padding: 12px;
+    padding: 10px;
     border-radius: 10px;
 }
 
@@ -177,14 +179,24 @@
     background: var(--light-color);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
+/* Tablet */
+@media (max-width: 992px) {
+    .questions-page .question-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Mobile */
+@media (max-width: 576px) {
+    .questions-page {
+        padding: 12px;
+    }
 
     .questions-page .question-stats {
         grid-template-columns: 1fr;
     }
 
-    .questions-page {
-        padding: 12px;
+    .questions-page .question-card {
+        padding: 15px;
     }
 }

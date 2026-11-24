@@ -1,5 +1,9 @@
-
 <?php
+<<<<<<< HEAD
+=======
+session_start();
+
+>>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
 require_once 'lesder-db.php';
 
 /* Escape output safely */

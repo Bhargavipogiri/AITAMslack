@@ -1,5 +1,5 @@
-
 <?php
+<<<<<<< HEAD
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -14,10 +14,19 @@ function e($value) {
 }
 
 /* Fetch question history */
+=======
+require_once __DIR__ . '/includes/bootstrap.php';
+
+require_once 'lesder-db.php';
+
+>>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
 $questions = [];
 $databaseError = '';
+$successMessage = $_SESSION['flash']['success'] ?? '';
+unset($_SESSION['flash']['success']);
 
 try {
+<<<<<<< HEAD
 
     $sql = "SELECT
                 id,
@@ -42,6 +51,27 @@ try {
     $databaseError = 'Unable to load question history. Please try again later.';
 }
 
+=======
+    $stmt = db()->query(
+        'SELECT
+            q.id,
+            q.user_id,
+            q.question_title,
+            q.question_description,
+            q.category,
+            q.status,
+            q.created_at,
+            COALESCE(NULLIF(u.full_name, \'\'), CONCAT(\'User #\', q.user_id)) AS user_name
+         FROM questions q
+         LEFT JOIN users u ON u.user_id = q.user_id
+         ORDER BY q.created_at DESC, q.id DESC'
+    );
+    $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $exception) {
+    error_log('Question history load failed: ' . $exception->getMessage());
+    $databaseError = 'Unable to load question history. Please try again later.';
+}
+>>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
 ?>
 
 <!DOCTYPE html>
@@ -135,8 +165,29 @@ body[data-theme="dark"] .history-container {
     font-weight: 800;
 }
 
+<<<<<<< HEAD
 .history-header p {
     color: var(--history-muted);
+=======
+        .success-message {
+            margin-bottom: 18px;
+            padding: 14px 18px;
+            border: 1px solid #198754;
+            border-radius: 8px;
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 25px;
+            padding: 10px 18px;
+            border-radius: 8px;
+            background: var(--color-blue-600);
+            color: var(--text-on-brand);
+            text-decoration: none;
+        }
+>>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
 
     font-size: 16px;
     line-height: 1.7;
@@ -526,8 +577,17 @@ body[data-theme="dark"] .question-card {
 
     </div>
 
+<<<<<<< HEAD
 
     <!-- DATABASE ERROR -->
+=======
+    <?php if ($successMessage !== ''): ?>
+        <div class="success-message" role="status">
+            <?= e($successMessage) ?>
+        </div>
+    <?php endif; ?>
+
+>>>>>>> fa50bb2b2a8341826462e66e39e8937cd9d3912f
     <?php if ($databaseError !== ''): ?>
 
         <div class="database-error" role="alert">
@@ -588,7 +648,7 @@ body[data-theme="dark"] .question-card {
                         </span>
 
                         <span>
-                            User: <?= e($question['user_id']) ?>
+                            User: <?= e($question['user_name']) ?>
                         </span>
 
                         <span>
