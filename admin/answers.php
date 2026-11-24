@@ -3,18 +3,8 @@
 
 require_once __DIR__ . '/includes/auth.php';
 require_admin();
-require_once dirname(__DIR__) . '/includes/ai_helpers.php';
 
-<<<<<<< HEAD
-function e(mixed $value): string
-{
-    return htmlspecialchars(
-        (string)($value ?? ''),
-        ENT_QUOTES | ENT_SUBSTITUTE,
-        'UTF-8'
-    );
-}
-=======
+require_once dirname(__DIR__) . '/includes/ai_helpers.php';
 require_once __DIR__ . '/includes/db.php';
 
 /* -------------------------------------------------
@@ -33,36 +23,48 @@ if (!function_exists('e')) {
 }
 
 /* -------------------------------------------------
-   SEARCH AND FILTER
+   SEARCH, CATEGORY AND STATUS FILTERS
 ------------------------------------------------- */
 
-$search = trim($_GET['search'] ?? '');
-$category = trim($_GET['category'] ?? '');
-
-/* -------------------------------------------------
-   FLASH MESSAGE
-------------------------------------------------- */
->>>>>>> 39cf30da041aa7847606a412a24977294b39497a
-
-$csrfToken = admin_csrf_token();
-$allowedStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
 $search = is_string($_GET['search'] ?? null)
     ? trim($_GET['search'])
     : '';
+
+$category = is_string($_GET['category'] ?? null)
+    ? trim($_GET['category'])
+    : '';
+
+$allowedStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
+
 $status = is_string($_GET['status'] ?? null)
     ? trim($_GET['status'])
     : 'PENDING';
-$status = in_array($status, $allowedStatuses, true) ? $status : 'PENDING';
+
+$status = in_array($status, $allowedStatuses, true)
+    ? $status
+    : 'PENDING';
+
+/* -------------------------------------------------
+   FLASH MESSAGE AND CSRF
+------------------------------------------------- */
+
+$csrfToken = admin_csrf_token();
+
 $message = $_SESSION['flash_message'] ?? '';
 unset($_SESSION['flash_message']);
 
-<<<<<<< HEAD
+/* -------------------------------------------------
+   HANDLE APPROVE / REJECT
+------------------------------------------------- */
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
     $answerId = filter_var(
         $_POST['answer_id'] ?? null,
         FILTER_VALIDATE_INT,
         ['options' => ['min_range' => 1]]
     );
+
     $action = $_POST['action'] ?? '';
 
     if (!admin_csrf_verify(
@@ -70,28 +72,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? $_POST['csrf_token']
             : null
     )) {
-        $_SESSION['flash_message'] = 'Your session expired. Refresh and try again.';
-    } elseif ($answerId === false || !in_array($action, ['approve', 'reject'], true)) {
-        $_SESSION['flash_message'] = 'Invalid answer review details.';
+
+        $_SESSION['flash_message'] =
+            'Your session expired. Refresh and try again.';
+
+    } elseif (
+        $answerId === false ||
+        !in_array($action, ['approve', 'reject'], true)
+    ) {
+
+        $_SESSION['flash_message'] =
+            'Invalid answer review details.';
+
     } else {
-        $publicationStatus = $action === 'approve' ? 'APPROVED' : 'REJECTED';
+
+        $publicationStatus = $action === 'approve'
+            ? 'APPROVED'
+            : 'REJECTED';
 
         try {
+
             $pdo->beginTransaction();
 
             $lookup = $pdo->prepare(
-                'SELECT a.question_id, q.publication_status AS question_publication_status
+                'SELECT
+                    a.question_id,
+                    q.publication_status AS question_publication_status
                  FROM answers a
                  INNER JOIN questions q ON q.id = a.question_id
                  WHERE a.id = :id
                  FOR UPDATE'
             );
-            $lookup->execute([':id' => $answerId]);
+
+            $lookup->execute([
+                ':id' => $answerId
+            ]);
+
             $answerDetails = $lookup->fetch(PDO::FETCH_ASSOC);
 
             if (!$answerDetails) {
                 throw new RuntimeException('Answer not found.');
             }
+
             $questionId = (int)$answerDetails['question_id'];
 
             if (
@@ -108,12 +130,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  SET publication_status = :publication_status
                  WHERE id = :id'
             );
+
             $update->execute([
                 ':publication_status' => $publicationStatus,
-                ':id' => $answerId,
+                ':id' => $answerId
             ]);
 
             if ($publicationStatus === 'APPROVED') {
+
                 $questionUpdate = $pdo->prepare(
                     "UPDATE questions
                      SET status = 'Answered'
@@ -121,7 +145,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                        AND publication_status = 'APPROVED'
                        AND status = 'Pending'"
                 );
-                $questionUpdate->execute([':question_id' => $questionId]);
+
+                $questionUpdate->execute([
+                    ':question_id' => $questionId
+                ]);
             }
 
             recordModerationEvent(
@@ -136,32 +163,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             $pdo->commit();
-            $_SESSION['flash_message'] = 'Answer review decision saved.';
+
+            $_SESSION['flash_message'] =
+                'Answer review decision saved.';
+
         } catch (Throwable $exception) {
+
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
 
             error_log(
                 'Answer review update failed: ' .
-                get_class($exception) . ' (' . $exception->getCode() . ')'
+                get_class($exception) .
+                ' (' . $exception->getCode() . ')'
             );
-            $_SESSION['flash_message'] = $exception instanceof DomainException
-                ? $exception->getMessage()
-                : 'Unable to save the answer review decision.';
+
+            $_SESSION['flash_message'] =
+                $exception instanceof DomainException
+                    ? $exception->getMessage()
+                    : 'Unable to save the answer review decision.';
         }
     }
 
     $redirectParams = [];
+
     if ($search !== '') {
         $redirectParams['search'] = $search;
     }
+
+    if ($category !== '') {
+        $redirectParams['category'] = $category;
+    }
+
     if ($status !== '') {
         $redirectParams['status'] = $status;
     }
 
     $redirectUrl = 'answers.php';
-    if ($redirectParams !== []) {
+
+    if (!empty($redirectParams)) {
         $redirectUrl .= '?' . http_build_query($redirectParams);
     }
 
@@ -169,24 +210,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-$statsStmt = $pdo->query("
-    SELECT
-        COUNT(*) AS total_answers,
-        SUM(CASE WHEN publication_status = 'APPROVED' THEN 1 ELSE 0 END) AS published_answers,
-        SUM(CASE WHEN publication_status = 'PENDING' THEN 1 ELSE 0 END) AS pending_answers,
-        SUM(CASE WHEN publication_status = 'REJECTED' THEN 1 ELSE 0 END) AS hidden_answers
-=======
 /* -------------------------------------------------
    FETCH CATEGORIES
 ------------------------------------------------- */
 
-$categoryStmt = $pdo->query("
-    SELECT DISTINCT category
-    FROM questions
-    WHERE category IS NOT NULL
-      AND category != ''
-    ORDER BY category ASC
-");
+$categoryStmt = $pdo->query(
+    "SELECT DISTINCT category
+     FROM questions
+     WHERE category IS NOT NULL
+       AND category != ''
+     ORDER BY category ASC"
+);
 
 $categories = $categoryStmt->fetchAll(PDO::FETCH_COLUMN);
 
@@ -198,8 +232,8 @@ if (!in_array($category, $categories, true)) {
    ANSWER STATISTICS
 ------------------------------------------------- */
 
-$statsStmt = $pdo->query("
-    SELECT
+$statsStmt = $pdo->query(
+    "SELECT
         COUNT(*) AS total_answers,
         COUNT(DISTINCT question_id) AS answered_questions,
         COUNT(DISTINCT user_id) AS total_contributors,
@@ -212,37 +246,10 @@ $statsStmt = $pdo->query("
                 END
             ), 0
         ) AS answers_today
->>>>>>> 39cf30da041aa7847606a412a24977294b39497a
-    FROM answers
-");
-$stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
-<<<<<<< HEAD
-$totalAnswers = (int)$stats['total_answers'];
-$publishedAnswers = (int)$stats['published_answers'];
-$pendingAnswers = (int)$stats['pending_answers'];
-$hiddenAnswers = (int)$stats['hidden_answers'];
+     FROM answers"
+);
 
-$where = [];
-$params = [];
-if ($search !== '') {
-    $where[] = "(
-        a.answer_text LIKE :answer
-        OR q.question_title LIKE :title
-        OR CAST(a.user_id AS CHAR) LIKE :user_id
-        OR CAST(a.id AS CHAR) LIKE :answer_id
-    )";
-    $searchValue = '%' . $search . '%';
-    $params[':answer'] = $searchValue;
-    $params[':title'] = $searchValue;
-    $params[':user_id'] = $searchValue;
-    $params[':answer_id'] = $searchValue;
-}
-if ($status !== '') {
-    $where[] = 'a.publication_status = :publication_status';
-    $params[':publication_status'] = $status;
-}
-$whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
-=======
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
 
 $totalAnswers = (int)($stats['total_answers'] ?? 0);
 $answeredQuestions = (int)($stats['answered_questions'] ?? 0);
@@ -253,22 +260,62 @@ $answersToday = (int)($stats['answers_today'] ?? 0);
    FETCH ANSWERS
 ------------------------------------------------- */
 
->>>>>>> 39cf30da041aa7847606a412a24977294b39497a
+$where = [];
+$params = [];
+
+if ($search !== '') {
+
+    $where[] = "(
+        a.answer_text LIKE :answer
+        OR q.question_title LIKE :title
+        OR author.full_name LIKE :author
+        OR author.email LIKE :email
+        OR CAST(a.user_id AS CHAR) LIKE :user_id
+        OR CAST(a.id AS CHAR) LIKE :answer_id
+    )";
+
+    $searchValue = '%' . $search . '%';
+
+    $params[':answer'] = $searchValue;
+    $params[':title'] = $searchValue;
+    $params[':author'] = $searchValue;
+    $params[':email'] = $searchValue;
+    $params[':user_id'] = $searchValue;
+    $params[':answer_id'] = $searchValue;
+}
+
+if ($category !== '') {
+    $where[] = 'q.category = :category';
+    $params[':category'] = $category;
+}
+
+if ($status !== '') {
+    $where[] = 'a.publication_status = :publication_status';
+    $params[':publication_status'] = $status;
+}
+
+$whereSql = $where
+    ? 'WHERE ' . implode(' AND ', $where)
+    : '';
+
 $sql = "
     SELECT
         a.id,
         a.answer_text,
         a.question_id,
         a.user_id,
-<<<<<<< HEAD
+        a.publication_status,
+        a.created_at,
+
         author.full_name AS author_name,
         author.email AS author_email,
         author.department AS author_department,
         author.role AS author_role,
-        a.publication_status,
-        a.created_at,
+
         q.question_title,
         q.question_description,
+        q.category,
+
         ai.ai_decision,
         ai.ai_reason,
         ai.ai_confidence,
@@ -276,9 +323,15 @@ $sql = "
         ai.detected_violations,
         ai.model AS ai_model,
         ai.api_status
+
     FROM answers a
-    LEFT JOIN questions q ON q.id = a.question_id
-    LEFT JOIN users author ON author.user_id = a.user_id
+
+    LEFT JOIN questions q
+        ON q.id = a.question_id
+
+    LEFT JOIN users author
+        ON author.user_id = a.user_id
+
     LEFT JOIN moderation_events ai
         ON ai.id = (
             SELECT MAX(me.id)
@@ -287,74 +340,15 @@ $sql = "
               AND me.content_id = a.id
               AND me.event_type = 'AI'
         )
+
     $whereSql
+
     ORDER BY a.created_at DESC, a.id DESC
 ";
-=======
-        a.created_at,
 
-        u.full_name,
-        u.email,
-
-        q.question_title,
-        q.category
-
-    FROM answers a
-
-    LEFT JOIN questions q
-        ON q.id = a.question_id
-
-    LEFT JOIN users u
-        ON u.user_id = a.user_id
-
-    WHERE 1 = 1
-";
-
-$params = [];
-
-/* SEARCH */
-
-if ($search !== '') {
-
-    $sql .= "
-        AND (
-            a.answer_text LIKE :search1
-            OR q.question_title LIKE :search2
-            OR u.full_name LIKE :search3
-            OR u.email LIKE :search4
-            OR CAST(a.user_id AS CHAR) LIKE :search5
-            OR CAST(a.id AS CHAR) LIKE :search6
-        )
-    ";
-
-    $keyword = '%' . $search . '%';
-
-    $params[':search1'] = $keyword;
-    $params[':search2'] = $keyword;
-    $params[':search3'] = $keyword;
-    $params[':search4'] = $keyword;
-    $params[':search5'] = $keyword;
-    $params[':search6'] = $keyword;
-}
-
-/* CATEGORY FILTER */
-
-if ($category !== '') {
-
-    $sql .= " AND q.category = :category";
-
-    $params[':category'] = $category;
-}
-
-/* ORDER */
-
-$sql .= " ORDER BY a.created_at DESC";
-
-/* EXECUTE */
-
->>>>>>> 39cf30da041aa7847606a412a24977294b39497a
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
+
 $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
@@ -370,50 +364,31 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <title>AITAM Slack | Answer Management</title>
 
-    <!-- Bootstrap CSS -->
-
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
         rel="stylesheet"
     >
-
-    <!-- Bootstrap Icons -->
 
     <link
         rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
     >
 
-    <!-- Existing Project CSS -->
-
     <link rel="stylesheet" href="../assets/css/root.css">
-
     <link rel="stylesheet" href="../assets/css/admin.css">
-
     <link rel="stylesheet" href="../assets/css/answers.css">
 
 </head>
 
 <body>
 
-<!-- SIDEBAR: KEEP EXISTING SIDEBAR -->
-
 <?php include 'includes/sidebar.php'; ?>
-
-
-<!-- MAIN CONTENT: SAME STRUCTURE AS questions.php -->
 
 <div class="main-content">
 
-    <!-- TOP NAVBAR: KEEP EXISTING TOPBAR -->
-
     <?php include 'includes/topbar.php'; ?>
 
-
-    <!-- PAGE CONTENT -->
-
     <main class="page-content answers-page">
-
 
         <!-- PAGE HEADING -->
 
@@ -426,7 +401,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </p>
 
         </div>
-
 
         <!-- FLASH MESSAGE -->
 
@@ -447,105 +421,67 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         <?php endif; ?>
 
-
         <!-- STATISTICS -->
 
         <div class="answer-stats">
 
-
-            <!-- TOTAL ANSWERS -->
-
             <div class="answer-card">
 
                 <div class="answer-icon total-icon">
-
                     <i class="bi bi-chat-left-text"></i>
-
                 </div>
 
                 <div class="answer-details">
-
                     <p>Total Answers</p>
-
                     <h3><?= e($totalAnswers) ?></h3>
-
                 </div>
 
             </div>
-
-
-            <!-- ANSWERED QUESTIONS -->
 
             <div class="answer-card">
 
                 <div class="answer-icon published-icon">
-
                     <i class="bi bi-check-circle"></i>
-
                 </div>
 
                 <div class="answer-details">
-
                     <p>Questions with Answers</p>
-
                     <h3><?= e($answeredQuestions) ?></h3>
-
                 </div>
 
             </div>
-
-
-            <!-- CONTRIBUTORS -->
 
             <div class="answer-card">
 
                 <div class="answer-icon pending-icon">
-
                     <i class="bi bi-people"></i>
-
                 </div>
 
                 <div class="answer-details">
-
                     <p>Answer Contributors</p>
-
                     <h3><?= e($totalContributors) ?></h3>
-
                 </div>
 
             </div>
-
-
-            <!-- ANSWERS TODAY -->
 
             <div class="answer-card">
 
                 <div class="answer-icon hidden-icon">
-
                     <i class="bi bi-calendar-check"></i>
-
                 </div>
 
                 <div class="answer-details">
-
                     <p>Answers Today</p>
-
                     <h3><?= e($answersToday) ?></h3>
-
                 </div>
 
             </div>
 
-
         </div>
-
 
         <!-- ANSWERS TABLE PANEL -->
 
         <div class="answers-panel">
-
-
-            <!-- PANEL HEADING -->
 
             <div class="panel-heading">
 
@@ -557,13 +493,9 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             </div>
 
-
             <!-- SEARCH AND FILTER -->
 
             <form method="GET" class="answer-filters">
-
-
-                <!-- SEARCH BOX -->
 
                 <div class="search-box">
 
@@ -578,8 +510,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 </div>
 
-
-                <!-- CATEGORY -->
+                <!-- CATEGORY FILTER -->
 
                 <select name="category">
 
@@ -591,241 +522,76 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             value="<?= e($cat) ?>"
                             <?= $category === $cat ? 'selected' : '' ?>
                         >
-
                             <?= e($cat) ?>
-
                         </option>
 
                     <?php endforeach; ?>
 
                 </select>
 
+                <!-- STATUS FILTER -->
 
-                <!-- FILTER BUTTON -->
+                <select name="status">
+
+                    <?php foreach ($allowedStatuses as $item): ?>
+
+                        <option
+                            value="<?= e($item) ?>"
+                            <?= $status === $item ? 'selected' : '' ?>
+                        >
+                            <?= e(ucfirst(strtolower($item))) ?>
+                        </option>
+
+                    <?php endforeach; ?>
+
+                </select>
 
                 <button type="submit" class="filter-btn">
 
                     <i class="bi bi-funnel"></i>
-
-<<<<<<< HEAD
-                            <option
-                                value="<?= e($item) ?>"
-                                <?= $status === $item ? 'selected' : '' ?>
-                            >
-                                <?= e(ucfirst(strtolower($item))) ?>
-                            </option>
-=======
                     Filter
->>>>>>> 39cf30da041aa7847606a412a24977294b39497a
 
                 </button>
 
-
-                <!-- RESET BUTTON -->
-
                 <a href="answers.php" class="reset-btn">
-
                     Reset
-
                 </a>
 
-
             </form>
-
 
             <!-- ANSWERS TABLE -->
 
             <div class="table-responsive">
 
-<<<<<<< HEAD
-                    <table class="table answers-table">
-
-                        <thead>
-
-                            <tr>
-
-                                <th>Answer ID</th>
-                                <th>Answer Content</th>
-                                <th>Question</th>
-                                <th>Author</th>
-                                <th>Publication</th>
-                                <th>Submitted Date</th>
-                                <th>Manage</th>
-
-                            </tr>
-
-                        </thead>
-=======
                 <table class="table answers-table">
->>>>>>> 39cf30da041aa7847606a412a24977294b39497a
-
-
-                    <!-- TABLE HEADER -->
 
                     <thead>
 
                         <tr>
-
                             <th>Answer ID</th>
-
                             <th>Answer Content</th>
-
                             <th>Question</th>
-
-                            <th>User ID</th>
-
-                            <th>Status</th>
-
+                            <th>Author</th>
+                            <th>Publication</th>
                             <th>Submitted Date</th>
-
                             <th>Manage</th>
-
                         </tr>
 
                     </thead>
 
-
-<<<<<<< HEAD
-                                        <td class="answer-content">
-                                            <?= e($answer['answer_text']) ?>
-                                            <details>
-                                                <summary>AI review details</summary>
-                                                <p>
-                                                    Decision: <?= e($answer['ai_decision'] ?? 'FAILED') ?>
-                                                    · API: <?= e($answer['api_status'] ?? 'not checked') ?>
-                                                </p>
-                                                <?php if (!empty($answer['ai_reason'])): ?>
-                                                    <p><?= e($answer['ai_reason']) ?></p>
-                                                <?php endif; ?>
-                                                <?php if ($answer['ai_confidence'] !== null): ?>
-                                                    <p>Confidence: <?= e($answer['ai_confidence']) ?></p>
-                                                <?php endif; ?>
-                                                <?php if ($answer['relevance_score'] !== null): ?>
-                                                    <p>Relevance: <?= e($answer['relevance_score']) ?></p>
-                                                <?php endif; ?>
-                                                <?php if (!empty($answer['ai_model'])): ?>
-                                                    <p>Model: <?= e($answer['ai_model']) ?></p>
-                                                <?php endif; ?>
-                                                <?php if (!empty($answer['detected_violations'])): ?>
-                                                    <p>Flags: <?= e($answer['detected_violations']) ?></p>
-                                                <?php endif; ?>
-                                            </details>
-                                        </td>
-
-
-                                        <td>
-                                            <strong>
-                                                <?= e($answer['question_title'] ?? 'Question unavailable') ?>
-                                            </strong>
-                                            <?php if (!empty($answer['question_description'])): ?>
-                                                <details>
-                                                    <summary>Question context</summary>
-                                                    <p><?= e($answer['question_description']) ?></p>
-                                                </details>
-                                            <?php endif; ?>
-                                        </td>
-
-
-                                        <td>
-                                            <?= e($answer['author_name'] ?: 'User #' . $answer['user_id']) ?>
-                                            <div class="small text-muted">
-                                                <?= e($answer['author_email'] ?? '') ?>
-                                            </div>
-                                            <div class="small text-muted">
-                                                <?= e($answer['author_department'] ?? '') ?>
-                                                <?= !empty($answer['author_role']) ? ' · ' . e($answer['author_role']) : '' ?>
-                                            </div>
-                                        </td>
-
-
-                                        <td>
-
-                                            <span class="status-badge <?= e(strtolower($answer['publication_status'])) ?>">
-                                                <?= e(ucfirst(strtolower($answer['publication_status']))) ?>
-                                            </span>
-
-                                        </td>
-
-
-                                        <td>
-                                            <?= e($answer['created_at']) ?>
-                                        </td>
-
-
-                                        <td>
-
-                                            <form method="POST" class="status-form">
-
-                                                <input
-                                                    type="hidden"
-                                                    name="csrf_token"
-                                                    value="<?= e($csrfToken) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="answer_id"
-                                                    value="<?= e($answer['id']) ?>"
-                                                >
-
-                                                <?php if ($answer['publication_status'] !== 'APPROVED'): ?>
-                                                    <button
-                                                        type="submit"
-                                                        name="action"
-                                                        value="approve"
-                                                        class="update-btn"
-                                                        onclick="return confirm('Approve and publish this answer?')"
-                                                    >
-                                                        Approve
-                                                    </button>
-                                                <?php endif; ?>
-
-                                                <?php if ($answer['publication_status'] !== 'REJECTED'): ?>
-                                                    <button
-                                                        type="submit"
-                                                        name="action"
-                                                        value="reject"
-                                                        class="btn btn-sm btn-outline-danger"
-                                                        onclick="return confirm('Reject this answer?')"
-                                                    >
-                                                        Reject
-                                                    </button>
-                                                <?php endif; ?>
-
-                                            </form>
-
-                                        </td>
-
-                                    </tr>
-
-                                <?php endforeach; ?>
-
-                            <?php else: ?>
-
-=======
-                    <!-- TABLE BODY -->
-
                     <tbody>
-
 
                         <?php if (!empty($answers)): ?>
 
-
                             <?php foreach ($answers as $answer): ?>
 
-
->>>>>>> 39cf30da041aa7847606a412a24977294b39497a
                                 <tr>
-
 
                                     <!-- ANSWER ID -->
 
                                     <td>
-
                                         #<?= e($answer['id']) ?>
-
                                     </td>
-
 
                                     <!-- ANSWER CONTENT -->
 
@@ -833,95 +599,187 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                         <?= e($answer['answer_text']) ?>
 
+                                        <details>
+
+                                            <summary>AI review details</summary>
+
+                                            <p>
+                                                Decision:
+                                                <?= e($answer['ai_decision'] ?? 'Not available') ?>
+                                            </p>
+
+                                            <p>
+                                                API:
+                                                <?= e($answer['api_status'] ?? 'Not checked') ?>
+                                            </p>
+
+                                            <?php if (!empty($answer['ai_reason'])): ?>
+                                                <p>
+                                                    <?= e($answer['ai_reason']) ?>
+                                                </p>
+                                            <?php endif; ?>
+
+                                            <?php if ($answer['ai_confidence'] !== null): ?>
+                                                <p>
+                                                    Confidence:
+                                                    <?= e($answer['ai_confidence']) ?>
+                                                </p>
+                                            <?php endif; ?>
+
+                                            <?php if ($answer['relevance_score'] !== null): ?>
+                                                <p>
+                                                    Relevance:
+                                                    <?= e($answer['relevance_score']) ?>
+                                                </p>
+                                            <?php endif; ?>
+
+                                            <?php if (!empty($answer['ai_model'])): ?>
+                                                <p>
+                                                    Model:
+                                                    <?= e($answer['ai_model']) ?>
+                                                </p>
+                                            <?php endif; ?>
+
+                                            <?php if (!empty($answer['detected_violations'])): ?>
+                                                <p>
+                                                    Flags:
+                                                    <?= e($answer['detected_violations']) ?>
+                                                </p>
+                                            <?php endif; ?>
+
+                                        </details>
+
                                     </td>
 
-
-                                    <!-- QUESTION TITLE -->
-
-                                    <td>
-
-                                        <?= e(
-                                            $answer['question_title']
-                                            ?? 'Question unavailable'
-                                        ) ?>
-
-                                    </td>
-
-
-                                    <!-- USER INFORMATION -->
+                                    <!-- QUESTION -->
 
                                     <td>
 
                                         <strong>
-                                            <?= e($answer['user_id']) ?>
+                                            <?= e($answer['question_title'] ?? 'Question unavailable') ?>
                                         </strong>
 
-                                        <br>
+                                        <?php if (!empty($answer['question_description'])): ?>
 
-                                        <small class="text-muted">
+                                            <details>
 
-                                            <?= e(
-                                                $answer['full_name']
-                                                ?? 'User unavailable'
-                                            ) ?>
+                                                <summary>Question context</summary>
 
-                                        </small>
+                                                <p>
+                                                    <?= e($answer['question_description']) ?>
+                                                </p>
 
-                                    </td>
-
-
-                                    <!-- SUBMISSION INFORMATION -->
-
-                                    <td>
-
-                                        <span class="status-badge submitted">
-
-                                            Submitted
-
-                                        </span>
-
-                                    </td>
-
-
-                                    <!-- SUBMITTED DATE -->
-
-                                    <td>
-
-                                        <?php if (!empty($answer['created_at'])): ?>
-
-                                            <?= e(
-                                                date(
-                                                    'd M Y, h:i A',
-                                                    strtotime($answer['created_at'])
-                                                )
-                                            ) ?>
-
-                                        <?php else: ?>
-
-                                            Not available
+                                            </details>
 
                                         <?php endif; ?>
 
                                     </td>
 
+                                    <!-- AUTHOR -->
+
+                                    <td>
+
+                                        <?= e(
+                                            $answer['author_name']
+                                            ?: 'User #' . $answer['user_id']
+                                        ) ?>
+
+                                        <div class="small text-muted">
+                                            <?= e($answer['author_email'] ?? '') ?>
+                                        </div>
+
+                                        <div class="small text-muted">
+
+                                            <?= e($answer['author_department'] ?? '') ?>
+
+                                            <?= !empty($answer['author_role'])
+                                                ? ' · ' . e($answer['author_role'])
+                                                : '' ?>
+
+                                        </div>
+
+                                    </td>
+
+                                    <!-- PUBLICATION STATUS -->
+
+                                    <td>
+
+                                        <span class="status-badge <?= e(strtolower($answer['publication_status'])) ?>">
+
+                                            <?= e(
+                                                ucfirst(strtolower($answer['publication_status']))
+                                            ) ?>
+
+                                        </span>
+
+                                    </td>
+
+                                    <!-- SUBMITTED DATE -->
+
+                                    <td>
+                                        <?= e(
+                                            date(
+                                                'd M Y, h:i A',
+                                                strtotime($answer['created_at'])
+                                            )
+                                        ) ?>
+                                    </td>
 
                                     <!-- MANAGE -->
 
                                     <td>
 
-                                        <span class="text-muted">—</span>
+                                        <form method="POST" class="status-form">
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="<?= e($csrfToken) ?>"
+                                            >
+
+                                            <input
+                                                type="hidden"
+                                                name="answer_id"
+                                                value="<?= e($answer['id']) ?>"
+                                            >
+
+                                            <?php if ($answer['publication_status'] !== 'APPROVED'): ?>
+
+                                                <button
+                                                    type="submit"
+                                                    name="action"
+                                                    value="approve"
+                                                    class="update-btn"
+                                                    onclick="return confirm('Approve and publish this answer?')"
+                                                >
+                                                    Approve
+                                                </button>
+
+                                            <?php endif; ?>
+
+                                            <?php if ($answer['publication_status'] !== 'REJECTED'): ?>
+
+                                                <button
+                                                    type="submit"
+                                                    name="action"
+                                                    value="reject"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    onclick="return confirm('Reject this answer?')"
+                                                >
+                                                    Reject
+                                                </button>
+
+                                            <?php endif; ?>
+
+                                        </form>
 
                                     </td>
 
-
                                 </tr>
-
 
                             <?php endforeach; ?>
 
-
                         <?php else: ?>
-
 
                             <tr>
 
@@ -935,9 +793,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                             </tr>
 
-
                         <?php endif; ?>
-
 
                     </tbody>
 
@@ -945,24 +801,18 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             </div>
 
-
         </div>
-
 
     </main>
 
 </div>
-
 
 <!-- JAVASCRIPT -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 <script src="../assets/js/admin.js"></script>
-
 <script src="../assets/js/answers.js"></script>
 
-
 </body>
-
 </html>
