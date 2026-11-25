@@ -7,6 +7,7 @@ $questions = [];
 $publicQuestionCount = 0;
 $databaseError = '';
 $successMessage = '';
+
 $currentUserId = filter_var(
     $_SESSION['user_id'] ?? null,
     FILTER_VALIDATE_INT,
@@ -23,7 +24,7 @@ if (!empty($_SESSION['flash']['success'])) {
 }
 
 /* =====================================
-   FETCH QUESTIONS
+   FETCH PUBLIC AND PERSONAL QUESTIONS
 ===================================== */
 
 try {
@@ -36,8 +37,12 @@ try {
             q.question_description,
             q.category,
             q.status,
-            q.publication_status,
             q.created_at,
+
+            COALESCE(
+                current_review.publication_status,
+                'PENDING'
+            ) AS publication_status,
 
             COALESCE(
                 NULLIF(u.full_name, ''),
@@ -49,44 +54,79 @@ try {
         LEFT JOIN users u
             ON u.user_id = q.user_id
 
-    ";
+        LEFT JOIN moderation_events current_review
+            ON current_review.id = (
+                SELECT MAX(me.id)
+                FROM moderation_events me
+                WHERE me.content_type = 'question'
+                  AND me.content_id = q.id
+            )
 
-    $params = [];
+        WHERE
+            current_review.publication_status = 'APPROVED'
+            OR q.user_id = :current_user_id
 
-    if ($currentUserId !== false) {
-        $sql .= "
-            WHERE q.publication_status = 'APPROVED'
-                OR q.user_id = :viewer_id
-        ";
-        $params['viewer_id'] = $currentUserId;
-    } else {
-        $sql .= " WHERE q.publication_status = 'APPROVED' ";
-    }
-
-    $sql .= "
         ORDER BY
             q.created_at DESC,
             q.id DESC
     ";
 
     $stmt = db()->prepare($sql);
-    $stmt->execute($params);
+
+    if ($currentUserId !== false && $currentUserId !== null) {
+        $stmt->bindValue(
+            ':current_user_id',
+            $currentUserId,
+            PDO::PARAM_INT
+        );
+    } else {
+        $stmt->bindValue(
+            ':current_user_id',
+            null,
+            PDO::PARAM_NULL
+        );
+    }
+
+    $stmt->execute();
 
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $countStmt = db()->query(
-        "SELECT COUNT(*) FROM questions WHERE publication_status = 'APPROVED'"
-    );
+    /* =====================================
+       COUNT PUBLIC QUESTIONS
+    ===================================== */
+
+    $countSql = "
+        SELECT COUNT(*)
+        FROM questions q
+
+        INNER JOIN moderation_events current_review
+            ON current_review.id = (
+                SELECT MAX(me.id)
+                FROM moderation_events me
+                WHERE me.content_type = 'question'
+                  AND me.content_id = q.id
+            )
+
+        WHERE current_review.publication_status = 'APPROVED'
+    ";
+
+    $countStmt = db()->query($countSql);
+
     $publicQuestionCount = (int)$countStmt->fetchColumn();
 
 } catch (PDOException $error) {
 
-    error_log("Question History Error: " . $error->getMessage());
+    error_log(
+        'Question History Error: ' . $error->getMessage()
+    );
 
-    $databaseError = 'Unable to load questions. Please try again later.';
+    $databaseError =
+        'Unable to load questions. Please try again later.';
 }
 
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="en">

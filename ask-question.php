@@ -100,6 +100,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $connection->beginTransaction();
 
+            
+            $publicationStatus = moderationPublicationStatus($moderation);
+            error_log('========== QUESTION AI DEBUG ==========');
+            error_log('AI OK: ' . var_export($moderation['ok'] ?? null, true));
+            error_log('API STATUS: ' . ($moderation['api_status'] ?? 'missing'));
+            error_log('AI MODEL: ' . ($moderation['model'] ?? 'missing'));
+            error_log('AI DECISION: ' . ($moderation['moderation']['decision'] ?? 'missing'));
+            error_log('AI REASON: ' . ($moderation['moderation']['reason'] ?? 'missing'));
+            error_log('AI CONFIDENCE: ' . var_export($moderation['moderation']['confidence'] ?? null, true));
+            error_log('COLLEGE RELATED: ' . var_export($moderation['moderation']['is_college_related'] ?? null, true));
+            error_log('MEANINGFUL: ' . var_export($moderation['moderation']['is_meaningful'] ?? null, true));
+            error_log('DUPLICATE: ' . var_export($moderation['moderation']['is_duplicate'] ?? null, true));
+            error_log('VULGAR: ' . var_export($moderation['moderation']['is_vulgar'] ?? null, true));
+            error_log('ABUSIVE: ' . var_export($moderation['moderation']['is_abusive'] ?? null, true));
+            error_log('SPAM: ' . var_export($moderation['moderation']['is_spam'] ?? null, true));
+            error_log('FINAL PUBLICATION STATUS: ' . $publicationStatus);
+            error_log('======================================');
+
             $insert = $connection->prepare(
                 'INSERT INTO questions
                 (
@@ -108,22 +126,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     question_description,
                     category,
                     status,
-                    publication_status,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, NOW())'
+                VALUES (?, ?, ?, ?, ?, NOW())'
             );
-
-            $publicationStatus = moderationPublicationStatus($moderation);
 
             $insert->execute([
                 $userId,
                 $old['title'],
                 $old['body'],
                 $selectedCategory,
-                'Pending',
-                $publicationStatus
+                'Pending'
             ]);
+
 
             $questionId = (int)$connection->lastInsertId();
 

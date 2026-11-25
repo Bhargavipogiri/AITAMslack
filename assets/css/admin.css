@@ -1341,3 +1341,115 @@ body.sidebar-collapsed .main-content {
         padding: 14px;
     }
 }
+
+
+/* =========================================
+   COMPACT FIXED ADMIN SIDEBAR
+========================================= */
+
+/* Keep sidebar fixed */
+.sidebar {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    bottom: 12px;
+
+    display: flex;
+    flex-direction: column;
+
+    padding: 14px 10px;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.25) transparent;
+}
+
+/* Sidebar scrollbar */
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.25);
+    border-radius: 10px;
+}
+
+/* Branding */
+.sidebar-brand {
+    gap: 8px;
+    padding: 0 8px 12px;
+    flex-shrink: 0;
+}
+
+.brand-icon {
+    width: 42px;
+    height: 42px;
+}
+
+.brand-text h5 {
+    font-size: 14px;
+    margin-bottom: 1px;
+}
+
+/* Divider */
+.sidebar-divider {
+    margin-bottom: 10px;
+}
+
+/* Menu sections */
+.menu-section {
+    margin-bottom: 10px;
+}
+
+.menu-heading {
+    font-size: 9px;
+    margin-bottom: 6px;
+    padding: 0 9px;
+}
+
+/* Menu list */
+.sidebar-menu li {
+    margin-bottom: 2px;
+}
+
+/* Navigation links */
+.menu-link {
+    min-height: 34px;
+    padding: 7px 9px;
+    gap: 9px;
+    font-size: 11.5px;
+}
+
+.menu-link i {
+    font-size: 13px;
+    width: 13px;
+}
+
+/* Logout */
+.sidebar-logout {
+    margin-top: auto;
+    padding-top: 10px;
+    flex-shrink: 0;
+}
+
+.logout-link {
+    padding: 8px 9px;
+    gap: 9px;
+    font-size: 11.5px;
+}
+
+/* Collapsed sidebar */
+body.sidebar-collapsed .menu-link,
+body.sidebar-collapsed .logout-link {
+    min-height: 36px;
+    padding: 8px 5px;
+}
+
+/* Mobile sidebar */
+@media (max-width: 768px) {
+    .sidebar {
+        padding: 14px 10px;
+    }
+}

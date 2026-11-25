@@ -1,8 +1,11 @@
 
 <?php
+
 require_once __DIR__ . '/includes/auth.php';
 require_admin();
+
 require_once __DIR__ . '/includes/db.php';
+require_once dirname(__DIR__) . '/includes/ai_helpers.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -12,253 +15,333 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-function e($value) {
-    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
+/* =========================================
+   HELPER FUNCTION
+========================================= */
+
+function e($value): string
+{
+    return htmlspecialchars(
+        (string)($value ?? ''),
+        ENT_QUOTES,
+        'UTF-8'
+    );
 }
 
-$allowedStatuses = ['pending', 'reviewed', 'dismissed', 'resolved'];
-
-/*
-|--------------------------------------------------------------------------
-| Handle admin actions
-|--------------------------------------------------------------------------
-*/
+/* =========================================
+   HANDLE ADMIN ACTIONS
+========================================= */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (
         !isset($_POST['csrf_token']) ||
+        !is_string($_POST['csrf_token']) ||
         !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
     ) {
         die('Invalid request.');
     }
 
-    $reportId = filter_input(INPUT_POST, 'report_id', FILTER_VALIDATE_INT);
-    $reportType = $_POST['report_type'] ?? '';
+    $questionId = filter_input(
+        INPUT_POST,
+        'question_id',
+        FILTER_VALIDATE_INT
+    );
+
     $action = $_POST['action'] ?? '';
-    $adminNote = trim($_POST['admin_note'] ?? '');
 
-    $actionStatuses = [
-        'review'  => 'reviewed',
-        'dismiss' => 'dismissed',
-        'resolve' => 'resolved'
-    ];
-
-    // Only allow these two table names.
-    $reportTables = [
-        'question' => 'reported_questions',
-        'answer'   => 'reported_answers'
+    $adminActions = [
+        'approve' => 'APPROVED',
+        'reject'  => 'REJECTED'
     ];
 
     if (
-        $reportId &&
-        isset($reportTables[$reportType]) &&
-        isset($actionStatuses[$action])
+        $questionId &&
+        isset($adminActions[$action])
     ) {
-        $table = $reportTables[$reportType];
-        $newStatus = $actionStatuses[$action];
 
-        $sql = "UPDATE `$table`
-                SET report_status = ?,
-                    admin_note = ?,
-                    reviewed_at = NOW()
-                WHERE id = ?";
+        $adminDecision = $adminActions[$action];
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            $newStatus,
-            $adminNote,
-            $reportId
-        ]);
+        try {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Verify that the question is still awaiting AI moderation review
+            |--------------------------------------------------------------------------
+            */
+
+            $checkSql = "
+                SELECT me.id
+
+                FROM moderation_events me
+
+                INNER JOIN (
+                    SELECT
+                        content_type,
+                        content_id,
+                        MAX(id) AS latest_id
+
+                    FROM moderation_events
+
+                    WHERE content_type = 'question'
+
+                    GROUP BY content_type, content_id
+
+                ) latest
+                    ON latest.latest_id = me.id
+
+                INNER JOIN questions q
+                    ON q.id = me.content_id
+
+                WHERE me.content_type = 'question'
+                  AND me.event_type = 'AI'
+                  AND me.publication_status = 'PENDING'
+                  AND me.ai_decision IN ('REVIEW', 'REJECTED', 'FAILED')
+                  AND me.content_id = ?
+
+                LIMIT 1
+            ";
+
+            $checkStmt = $pdo->prepare($checkSql);
+            $checkStmt->execute([$questionId]);
+
+            $eligibleQuestion = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($eligibleQuestion) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Record ADMIN moderation event
+                |--------------------------------------------------------------------------
+                */
+
+                $adminId = (int)(
+                    $_SESSION['admin_id']
+                    ?? $_SESSION['user_id']
+                    ?? 0
+                );
+
+                recordModerationEvent(
+                    $pdo,
+                    'question',
+                    (int)$questionId,
+                    'ADMIN',
+                    $adminDecision,
+                    [],
+                    $adminId > 0 ? $adminId : null,
+                    $adminDecision
+                );
+
+                header(
+                    'Location: reported-questions.php?updated=' .
+                    strtolower($adminDecision)
+                );
+
+                exit;
+
+            } else {
+
+                header('Location: reported-questions.php?updated=unavailable');
+                exit;
+
+            }
+
+        } catch (Throwable $exception) {
+
+            error_log(
+                'Reported question admin action failed: ' .
+                $exception->getMessage()
+            );
+
+            header('Location: reported-questions.php?updated=error');
+            exit;
+        }
     }
 
     header('Location: reported-questions.php');
     exit;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Search and filters
-|--------------------------------------------------------------------------
-*/
+/* =========================================
+   SEARCH AND FILTERS
+========================================= */
 
 $search = trim($_GET['search'] ?? '');
-$status = $_GET['status'] ?? '';
+$decision = strtoupper(trim($_GET['decision'] ?? ''));
 
-/*
-|--------------------------------------------------------------------------
-| Fetch question reports and answer reports
-|--------------------------------------------------------------------------
-|
-| Question reports:
-| reported_questions -> questions -> users
-|
-| Answer reports:
-| reported_answers -> answers -> questions -> users
-|
-| Both queries return the same columns using UNION ALL.
-|--------------------------------------------------------------------------
-*/
+$allowedDecisions = [
+    'REVIEW',
+    'REJECTED',
+    'FAILED'
+];
+
+/* =========================================
+   LATEST AI-FLAGGED QUESTIONS
+========================================= */
 
 $sql = "
-    SELECT *
-    FROM (
+    SELECT
 
-        /* QUESTION REPORTS */
+        me.id AS moderation_id,
+        me.content_id AS question_id,
 
-        SELECT
-            rq.id AS report_id,
-            'question' AS report_type,
-            rq.question_id AS content_id,
-            rq.reported_by,
-            rq.reason,
-            rq.report_description,
-            rq.report_status,
-            rq.admin_note,
-            rq.reported_at,
-            rq.reviewed_at,
+        me.event_type,
+        me.ai_decision,
+        me.publication_status,
 
-            q.question_title AS content_title,
-            q.question_description AS content_text,
-            q.category,
-            q.question_title AS related_question,
+        me.ai_reason,
+        me.ai_confidence,
+        me.category,
+        me.detected_violations,
 
-            author.full_name AS author_name,
-            author.email AS author_email,
+        me.model,
+        me.api_status,
+        me.created_at AS submitted_at,
 
-            reporter.full_name AS reporter_name,
-            reporter.email AS reporter_email
+        q.question_title,
+        q.question_description,
+        q.status AS question_status,
 
-        FROM reported_questions rq
+        u.full_name AS author_name,
+        u.email AS author_email,
+        u.department AS author_department
 
-        INNER JOIN questions q
-            ON rq.question_id = q.id
+    FROM moderation_events me
 
-        LEFT JOIN users reporter
-            ON rq.reported_by = reporter.user_id
-
-        LEFT JOIN users author
-            ON q.user_id = author.user_id
-
-
-        UNION ALL
-
-
-        /* ANSWER REPORTS */
+    INNER JOIN (
 
         SELECT
-            ra.id AS report_id,
-            'answer' AS report_type,
-            a.id AS content_id,
-            ra.reported_by,
-            ra.reason,
-            ra.report_description,
-            ra.report_status,
-            ra.admin_note,
-            ra.reported_at,
-            ra.reviewed_at,
+            content_type,
+            content_id,
+            MAX(id) AS latest_id
 
-            CONCAT('Answer to: ', q.question_title) AS content_title,
-            a.answer_text AS content_text,
-            q.category,
-            q.question_title AS related_question,
+        FROM moderation_events
 
-            author.full_name AS author_name,
-            author.email AS author_email,
+        WHERE content_type = 'question'
 
-            reporter.full_name AS reporter_name,
-            reporter.email AS reporter_email
+        GROUP BY content_type, content_id
 
-        FROM reported_answers ra
+    ) latest
 
-        INNER JOIN answers a
-            ON ra.answer_id = a.id
+        ON latest.latest_id = me.id
 
-        INNER JOIN questions q
-            ON a.question_id = q.id
+    INNER JOIN questions q
+        ON q.id = me.content_id
 
-        LEFT JOIN users reporter
-            ON ra.reported_by = reporter.user_id
+    LEFT JOIN users u
+        ON q.user_id = u.user_id
 
-        LEFT JOIN users author
-            ON a.user_id = author.user_id
+    WHERE me.content_type = 'question'
 
-    ) AS reports
+      AND me.event_type = 'AI'
 
-    WHERE 1=1
+      AND me.publication_status = 'PENDING'
+
+      AND me.ai_decision IN ('REVIEW', 'REJECTED', 'FAILED')
 ";
 
 $params = [];
+
+/* SEARCH */
 
 if ($search !== '') {
 
     $sql .= "
         AND (
-            content_title LIKE ?
-            OR content_text LIKE ?
-            OR reporter_name LIKE ?
-            OR reporter_email LIKE ?
-            OR author_name LIKE ?
-            OR reason LIKE ?
-            OR report_description LIKE ?
+            q.question_title LIKE ?
+            OR q.question_description LIKE ?
+            OR u.full_name LIKE ?
+            OR u.email LIKE ?
+            OR me.ai_reason LIKE ?
+            OR me.category LIKE ?
         )
     ";
 
     $keyword = '%' . $search . '%';
 
-    $params = array_fill(0, 7, $keyword);
+    $params = array_fill(0, 6, $keyword);
 }
 
-if (in_array($status, $allowedStatuses, true)) {
-    $sql .= " AND report_status = ?";
-    $params[] = $status;
+/* DECISION FILTER */
+
+if (in_array($decision, $allowedDecisions, true)) {
+
+    $sql .= " AND me.ai_decision = ?";
+
+    $params[] = $decision;
 }
 
-$sql .= " ORDER BY reported_at DESC, report_id DESC";
+$sql .= "
+    ORDER BY me.created_at DESC, me.id DESC
+";
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 
-$reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/*
-|--------------------------------------------------------------------------
-| Summary statistics
-|--------------------------------------------------------------------------
-*/
+/* =========================================
+   SUMMARY STATISTICS
+========================================= */
 
 $statsSql = "
+
     SELECT
-        COUNT(*) AS total_reports,
 
-        COALESCE(SUM(report_status = 'pending'), 0)
-            AS pending_reports,
+        COUNT(*) AS total_flagged,
 
-        COALESCE(SUM(report_status = 'reviewed'), 0)
-            AS reviewed_reports,
+        COALESCE(
+            SUM(me.ai_decision = 'REVIEW'),
+            0
+        ) AS review_count,
 
-        COALESCE(SUM(report_status = 'dismissed'), 0)
-            AS dismissed_reports,
+        COALESCE(
+            SUM(me.ai_decision = 'REJECTED'),
+            0
+        ) AS rejected_count,
 
-        COALESCE(SUM(report_status = 'resolved'), 0)
-            AS resolved_reports
+        COALESCE(
+            SUM(me.ai_decision = 'FAILED'),
+            0
+        ) AS failed_count
 
-    FROM (
-        SELECT report_status FROM reported_questions
+    FROM moderation_events me
 
-        UNION ALL
+    INNER JOIN (
 
-        SELECT report_status FROM reported_answers
-    ) AS all_reports
+        SELECT
+            content_type,
+            content_id,
+            MAX(id) AS latest_id
+
+        FROM moderation_events
+
+        WHERE content_type = 'question'
+
+        GROUP BY content_type, content_id
+
+    ) latest
+
+        ON latest.latest_id = me.id
+
+    INNER JOIN questions q
+        ON q.id = me.content_id
+
+    WHERE me.content_type = 'question'
+
+      AND me.event_type = 'AI'
+
+      AND me.publication_status = 'PENDING'
+
+      AND me.ai_decision IN ('REVIEW', 'REJECTED', 'FAILED')
 ";
 
 $stats = $pdo->query($statsSql)->fetch(PDO::FETCH_ASSOC);
 
-$totalReports = $stats['total_reports'] ?? 0;
-$pendingReports = $stats['pending_reports'] ?? 0;
-$reviewedReports = $stats['reviewed_reports'] ?? 0;
-$dismissedReports = $stats['dismissed_reports'] ?? 0;
-$resolvedReports = $stats['resolved_reports'] ?? 0;
+$totalFlagged = (int)($stats['total_flagged'] ?? 0);
+$reviewCount = (int)($stats['review_count'] ?? 0);
+$rejectedCount = (int)($stats['rejected_count'] ?? 0);
+$failedCount = (int)($stats['failed_count'] ?? 0);
 
 ?>
 
@@ -268,15 +351,20 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
 <head>
 
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Reported Questions & Answers | AITAM Slack</title>
+    <title>Reported Questions | AITAM Slack</title>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
-          rel="stylesheet">
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-          rel="stylesheet">
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+        rel="stylesheet"
+    >
 
     <link rel="stylesheet" href="../assets/css/root.css">
     <link rel="stylesheet" href="../assets/css/admin.css">
@@ -299,15 +387,65 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
         <div class="page-heading reported-heading">
 
             <div>
-                <h2>Reported Questions & Answers</h2>
+
+                <h2>Reported Questions</h2>
 
                 <p>
-                    Review questions and answers reported by users
-                    and take appropriate action.
+                    Review questions flagged by AI moderation
+                    and decide whether they should be published.
                 </p>
+
             </div>
 
         </div>
+
+
+        <!-- ACTION MESSAGES -->
+
+        <?php if (isset($_GET['updated'])): ?>
+
+            <?php
+
+            $messages = [
+                'approved' => [
+                    'type' => 'success',
+                    'text' => 'Question approved successfully.'
+                ],
+                'rejected' => [
+                    'type' => 'success',
+                    'text' => 'Question rejected successfully.'
+                ],
+                'unavailable' => [
+                    'type' => 'warning',
+                    'text' => 'This question has already been reviewed or is no longer available.'
+                ],
+                'error' => [
+                    'type' => 'danger',
+                    'text' => 'Unable to process the action. Please try again.'
+                ]
+            ];
+
+            $message = $messages[$_GET['updated']] ?? null;
+
+            ?>
+
+            <?php if ($message): ?>
+
+                <div class="alert alert-<?= e($message['type']) ?> alert-dismissible fade show">
+
+                    <?= e($message['text']) ?>
+
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="alert"
+                    ></button>
+
+                </div>
+
+            <?php endif; ?>
+
+        <?php endif; ?>
 
 
         <!-- SUMMARY CARDS -->
@@ -317,12 +455,15 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
             <div class="report-stat-card">
 
                 <div class="report-stat-icon total-icon">
-                    <i class="bi bi-flag"></i>
+                    <i class="bi bi-shield-exclamation"></i>
                 </div>
 
                 <div>
-                    <p>Total Reports</p>
-                    <h3><?= e($totalReports) ?></h3>
+
+                    <p>Total Flagged</p>
+
+                    <h3><?= e($totalFlagged) ?></h3>
+
                 </div>
 
             </div>
@@ -331,26 +472,15 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
             <div class="report-stat-card">
 
                 <div class="report-stat-icon pending-icon">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-
-                <div>
-                    <p>Pending</p>
-                    <h3><?= e($pendingReports) ?></h3>
-                </div>
-
-            </div>
-
-
-            <div class="report-stat-card">
-
-                <div class="report-stat-icon reviewed-icon">
                     <i class="bi bi-eye"></i>
                 </div>
 
                 <div>
-                    <p>Reviewed</p>
-                    <h3><?= e($reviewedReports) ?></h3>
+
+                    <p>Needs Review</p>
+
+                    <h3><?= e($reviewCount) ?></h3>
+
                 </div>
 
             </div>
@@ -363,8 +493,11 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
                 </div>
 
                 <div>
-                    <p>Dismissed</p>
-                    <h3><?= e($dismissedReports) ?></h3>
+
+                    <p>AI Rejected</p>
+
+                    <h3><?= e($rejectedCount) ?></h3>
+
                 </div>
 
             </div>
@@ -373,12 +506,15 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
             <div class="report-stat-card">
 
                 <div class="report-stat-icon resolved-icon">
-                    <i class="bi bi-check-circle"></i>
+                    <i class="bi bi-exclamation-triangle"></i>
                 </div>
 
                 <div>
-                    <p>Resolved</p>
-                    <h3><?= e($resolvedReports) ?></h3>
+
+                    <p>Moderation Failed</p>
+
+                    <h3><?= e($failedCount) ?></h3>
+
                 </div>
 
             </div>
@@ -386,18 +522,20 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
         </div>
 
 
-        <!-- REPORTS PANEL -->
+        <!-- QUESTIONS PANEL -->
 
         <section class="reports-panel">
 
             <div class="reports-panel-header">
 
                 <div>
-                    <h4>Reported Content</h4>
+
+                    <h4>AI-Flagged Questions</h4>
 
                     <p>
-                        View and manage question and answer reports.
+                        Review AI moderation results and manage question publication.
                     </p>
+
                 </div>
 
             </div>
@@ -414,24 +552,26 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
                     <input
                         type="search"
                         name="search"
-                        placeholder="Search questions, answers or reporters..."
+                        placeholder="Search questions or authors..."
                         value="<?= e($search) ?>"
                     >
 
                 </div>
 
 
-                <select name="status">
+                <select name="decision">
 
-                    <option value="">All Statuses</option>
+                    <option value="">All AI Decisions</option>
 
-                    <?php foreach ($allowedStatuses as $s): ?>
+                    <?php foreach ($allowedDecisions as $item): ?>
 
                         <option
-                            value="<?= e($s) ?>"
-                            <?= $status === $s ? 'selected' : '' ?>
+                            value="<?= e($item) ?>"
+                            <?= $decision === $item ? 'selected' : '' ?>
                         >
-                            <?= e(ucfirst($s)) ?>
+
+                            <?= e(ucfirst(strtolower($item))) ?>
+
                         </option>
 
                     <?php endforeach; ?>
@@ -442,6 +582,7 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
                 <button type="submit" class="filter-btn">
 
                     <i class="bi bi-funnel"></i>
+
                     Filter
 
                 </button>
@@ -454,7 +595,7 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
             </form>
 
 
-            <!-- REPORTS TABLE -->
+            <!-- QUESTIONS TABLE -->
 
             <div class="table-responsive">
 
@@ -463,14 +604,15 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
                     <thead>
 
                         <tr>
-                            <th>Report ID</th>
-                            <th>Type</th>
-                            <th>Reported Content</th>
-                            <th>Reported By</th>
-                            <th>Reason</th>
-                            <th>Reported Date</th>
-                            <th>Status</th>
+
+                            <th>Question ID</th>
+                            <th>Question</th>
+                            <th>Author</th>
+                            <th>AI Decision</th>
+                            <th>Confidence</th>
+                            <th>Submitted Date</th>
                             <th>Action</th>
+
                         </tr>
 
                     </thead>
@@ -478,35 +620,103 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
 
                     <tbody>
 
-                    <?php if (!empty($reports)): ?>
+                    <?php if (!empty($questions)): ?>
 
-                        <?php foreach ($reports as $report): ?>
+                        <?php foreach ($questions as $question): ?>
+
+                            <?php
+
+                            $violations = json_decode(
+                                $question['detected_violations'] ?? '[]',
+                                true
+                            );
+
+                            if (!is_array($violations)) {
+                                $violations = [];
+                            }
+
+                            $decisionLabel = ucfirst(
+                                strtolower($question['ai_decision'] ?? 'Unknown')
+                            );
+
+                            ?>
 
                             <tr>
 
-                                <!-- REPORT ID -->
+                                <!-- QUESTION ID -->
 
                                 <td>
-                                    #<?= e($report['report_id']) ?>
+                                    #<?= e($question['question_id']) ?>
                                 </td>
 
 
-                                <!-- REPORT TYPE -->
+                                <!-- QUESTION -->
 
                                 <td>
 
-                                    <?php if ($report['report_type'] === 'question'): ?>
+                                    <div class="question-cell">
 
-                                        <span class="badge text-bg-primary">
-                                            <i class="bi bi-question-circle"></i>
-                                            Question
-                                        </span>
+                                        <strong>
+                                            <?= e($question['question_title']) ?>
+                                        </strong>
+
+                                        <small>
+                                            Category:
+                                            <?= e($question['category'] ?: 'Not available') ?>
+                                        </small>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- AUTHOR -->
+
+                                <td>
+
+                                    <div class="reporter-cell">
+
+                                        <strong>
+                                            <?= e($question['author_name'] ?: 'Unknown User') ?>
+                                        </strong>
+
+                                        <small>
+                                            <?= e($question['author_email'] ?: 'Email unavailable') ?>
+                                        </small>
+
+                                    </div>
+
+                                </td>
+
+
+                                <!-- AI DECISION -->
+
+                                <td>
+
+                                    <span class="report-status <?= e(strtolower($question['ai_decision'])) ?>">
+
+                                        <?= e($decisionLabel) ?>
+
+                                    </span>
+
+                                </td>
+
+
+                                <!-- CONFIDENCE -->
+
+                                <td>
+
+                                    <?php if ($question['ai_confidence'] !== null): ?>
+
+                                        <?= e(number_format(
+                                            (float)$question['ai_confidence'] * 100,
+                                            1
+                                        )) ?>%
 
                                     <?php else: ?>
 
-                                        <span class="badge text-bg-info">
-                                            <i class="bi bi-chat-left-text"></i>
-                                            Answer
+                                        <span class="text-muted">
+                                            N/A
                                         </span>
 
                                     <?php endif; ?>
@@ -514,82 +724,16 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
                                 </td>
 
 
-                                <!-- REPORTED CONTENT -->
-
-                                <td>
-
-                                    <div class="question-cell">
-
-                                        <strong>
-                                            <?= e($report['content_title']) ?>
-                                        </strong>
-
-                                        <small>
-                                            Content ID: #<?= e($report['content_id']) ?>
-                                        </small>
-
-                                        <?php if ($report['report_type'] === 'answer'): ?>
-
-                                            <small>
-                                                Question: <?= e($report['related_question']) ?>
-                                            </small>
-
-                                        <?php endif; ?>
-
-                                    </div>
-
-                                </td>
-
-
-                                <!-- REPORTER -->
-
-                                <td>
-
-                                    <div class="reporter-cell">
-
-                                        <strong>
-                                            <?= e($report['reporter_name'] ?: 'Unknown User') ?>
-                                        </strong>
-
-                                        <small>
-                                            <?= e($report['reporter_email'] ?: 'Email unavailable') ?>
-                                        </small>
-
-                                    </div>
-
-                                </td>
-
-
-                                <!-- REASON -->
-
-                                <td>
-                                    <?= e($report['reason']) ?>
-                                </td>
-
-
-                                <!-- DATE -->
+                                <!-- SUBMITTED DATE -->
 
                                 <td>
 
                                     <?= e(
                                         date(
-                                            'd M Y',
-                                            strtotime($report['reported_at'])
+                                            'd M Y, h:i A',
+                                            strtotime($question['submitted_at'])
                                         )
                                     ) ?>
-
-                                </td>
-
-
-                                <!-- STATUS -->
-
-                                <td>
-
-                                    <span class="report-status <?= e($report['report_status']) ?>">
-
-                                        <?= e(ucfirst($report['report_status'])) ?>
-
-                                    </span>
 
                                 </td>
 
@@ -600,32 +744,29 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
 
                                     <div class="report-actions">
 
-
                                         <!-- VIEW BUTTON -->
 
                                         <button
                                             type="button"
                                             class="action-btn view-btn"
-                                            title="View Report"
+                                            title="View Question"
                                             data-bs-toggle="modal"
-                                            data-bs-target="#reportModal"
+                                            data-bs-target="#questionModal"
 
-                                            data-report-id="<?= e($report['report_id']) ?>"
-                                            data-report-type="<?= e($report['report_type']) ?>"
-                                            data-content-id="<?= e($report['content_id']) ?>"
-                                            data-content-title="<?= e($report['content_title']) ?>"
-                                            data-content-text="<?= e($report['content_text']) ?>"
-                                            data-category="<?= e($report['category']) ?>"
-                                            data-related-question="<?= e($report['related_question']) ?>"
-                                            data-author="<?= e($report['author_name']) ?>"
-                                            data-author-email="<?= e($report['author_email']) ?>"
-                                            data-reporter="<?= e($report['reporter_name']) ?>"
-                                            data-reporter-email="<?= e($report['reporter_email']) ?>"
-                                            data-reason="<?= e($report['reason']) ?>"
-                                            data-description="<?= e($report['report_description']) ?>"
-                                            data-status="<?= e($report['report_status']) ?>"
-                                            data-admin-note="<?= e($report['admin_note']) ?>"
-                                            data-reported-at="<?= e($report['reported_at']) ?>"
+                                            data-question-id="<?= e($question['question_id']) ?>"
+                                            data-title="<?= e($question['question_title']) ?>"
+                                            data-description="<?= e($question['question_description']) ?>"
+                                            data-category="<?= e($question['category']) ?>"
+                                            data-author="<?= e($question['author_name']) ?>"
+                                            data-email="<?= e($question['author_email']) ?>"
+                                            data-department="<?= e($question['author_department']) ?>"
+                                            data-decision="<?= e($question['ai_decision']) ?>"
+                                            data-confidence="<?= e($question['ai_confidence']) ?>"
+                                            data-reason="<?= e($question['ai_reason']) ?>"
+                                            data-violations="<?= e(implode(', ', $violations)) ?>"
+                                            data-model="<?= e($question['model']) ?>"
+                                            data-api-status="<?= e($question['api_status']) ?>"
+                                            data-date="<?= e($question['submitted_at']) ?>"
                                         >
 
                                             <i class="bi bi-eye"></i>
@@ -633,140 +774,80 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
                                         </button>
 
 
-                                        <!-- REVIEW BUTTON -->
+                                        <!-- APPROVE BUTTON -->
 
-                                        <?php if ($report['report_status'] === 'pending'): ?>
+                                        <form
+                                            method="POST"
+                                            onsubmit="return confirm('Approve this question and make it visible to users?');"
+                                        >
 
-                                            <form method="POST">
-
-                                                <input
-                                                    type="hidden"
-                                                    name="csrf_token"
-                                                    value="<?= e($_SESSION['csrf_token']) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="report_id"
-                                                    value="<?= e($report['report_id']) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="report_type"
-                                                    value="<?= e($report['report_type']) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="action"
-                                                    value="review"
-                                                >
-
-                                                <button
-                                                    type="submit"
-                                                    class="action-btn review-btn"
-                                                    title="Mark as Reviewed"
-                                                >
-                                                    <i class="bi bi-eye-fill"></i>
-                                                </button>
-
-                                            </form>
-
-                                        <?php endif; ?>
-
-
-                                        <!-- DISMISS BUTTON -->
-
-                                        <?php if (!in_array($report['report_status'], ['dismissed', 'resolved'], true)): ?>
-
-                                            <form
-                                                method="POST"
-                                                onsubmit="return confirm('Are you sure you want to dismiss this report?');"
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="<?= e($_SESSION['csrf_token']) ?>"
                                             >
 
-                                                <input
-                                                    type="hidden"
-                                                    name="csrf_token"
-                                                    value="<?= e($_SESSION['csrf_token']) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="report_id"
-                                                    value="<?= e($report['report_id']) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="report_type"
-                                                    value="<?= e($report['report_type']) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="action"
-                                                    value="dismiss"
-                                                >
-
-                                                <button
-                                                    type="submit"
-                                                    class="action-btn dismiss-btn"
-                                                    title="Dismiss Report"
-                                                >
-                                                    <i class="bi bi-x-lg"></i>
-                                                </button>
-
-                                            </form>
-
-                                        <?php endif; ?>
-
-
-                                        <!-- RESOLVE BUTTON -->
-
-                                        <?php if (!in_array($report['report_status'], ['dismissed', 'resolved'], true)): ?>
-
-                                            <form
-                                                method="POST"
-                                                onsubmit="return confirm('Mark this report as resolved?');"
+                                            <input
+                                                type="hidden"
+                                                name="question_id"
+                                                value="<?= e($question['question_id']) ?>"
                                             >
 
-                                                <input
-                                                    type="hidden"
-                                                    name="csrf_token"
-                                                    value="<?= e($_SESSION['csrf_token']) ?>"
-                                                >
+                                            <input
+                                                type="hidden"
+                                                name="action"
+                                                value="approve"
+                                            >
 
-                                                <input
-                                                    type="hidden"
-                                                    name="report_id"
-                                                    value="<?= e($report['report_id']) ?>"
-                                                >
+                                            <button
+                                                type="submit"
+                                                class="action-btn resolve-btn"
+                                                title="Approve Question"
+                                            >
 
-                                                <input
-                                                    type="hidden"
-                                                    name="report_type"
-                                                    value="<?= e($report['report_type']) ?>"
-                                                >
+                                                <i class="bi bi-check-lg"></i>
 
-                                                <input
-                                                    type="hidden"
-                                                    name="action"
-                                                    value="resolve"
-                                                >
+                                            </button>
 
-                                                <button
-                                                    type="submit"
-                                                    class="action-btn resolve-btn"
-                                                    title="Mark as Resolved"
-                                                >
-                                                    <i class="bi bi-check-lg"></i>
-                                                </button>
+                                        </form>
 
-                                            </form>
 
-                                        <?php endif; ?>
+                                        <!-- REJECT BUTTON -->
 
+                                        <form
+                                            method="POST"
+                                            onsubmit="return confirm('Reject this question? It will remain hidden from users.');"
+                                        >
+
+                                            <input
+                                                type="hidden"
+                                                name="csrf_token"
+                                                value="<?= e($_SESSION['csrf_token']) ?>"
+                                            >
+
+                                            <input
+                                                type="hidden"
+                                                name="question_id"
+                                                value="<?= e($question['question_id']) ?>"
+                                            >
+
+                                            <input
+                                                type="hidden"
+                                                name="action"
+                                                value="reject"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="action-btn dismiss-btn"
+                                                title="Reject Question"
+                                            >
+
+                                                <i class="bi bi-x-lg"></i>
+
+                                            </button>
+
+                                        </form>
 
                                     </div>
 
@@ -781,11 +862,11 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
 
                         <tr>
 
-                            <td colspan="8" class="empty-state">
+                            <td colspan="7" class="empty-state">
 
                                 <i class="bi bi-inbox"></i>
 
-                                <p>No reported questions or answers found.</p>
+                                <p>No AI-flagged questions found.</p>
 
                             </td>
 
@@ -806,9 +887,9 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
 </div>
 
 
-<!-- REPORT DETAILS MODAL -->
+<!-- QUESTION DETAILS MODAL -->
 
-<div class="modal fade" id="reportModal" tabindex="-1">
+<div class="modal fade" id="questionModal" tabindex="-1">
 
     <div class="modal-dialog modal-lg modal-dialog-centered">
 
@@ -816,8 +897,8 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
 
             <div class="modal-header">
 
-                <h5 class="modal-title" id="modalHeading">
-                    Report Details
+                <h5 class="modal-title">
+                    Question Moderation Details
                 </h5>
 
                 <button
@@ -831,57 +912,34 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
 
             <div class="modal-body">
 
-
-                <!-- CONTENT DETAILS -->
+                <!-- QUESTION DETAILS -->
 
                 <div class="detail-section">
 
-                    <h6 id="modalContentHeading">
-                        Reported Content
-                    </h6>
+                    <h6>Question Details</h6>
 
                     <p>
-                        <strong>Report Type:</strong>
-                        <span id="modalReportType"></span>
-                    </p>
-
-                    <p>
-                        <strong>Content ID:</strong>
-                        <span id="modalContentId"></span>
+                        <strong>Question ID:</strong>
+                        <span id="modalQuestionId"></span>
                     </p>
 
                     <p>
                         <strong>Title:</strong>
-                        <span id="modalContentTitle"></span>
+                        <span id="modalTitle"></span>
                     </p>
 
                     <p>
-                        <strong>Content:</strong>
+                        <strong>Description:</strong>
                     </p>
 
                     <p
                         class="detail-description"
-                        id="modalContentText"
+                        id="modalDescription"
                     ></p>
 
                     <p>
                         <strong>Category:</strong>
                         <span id="modalCategory"></span>
-                    </p>
-
-                    <p id="relatedQuestionRow">
-                        <strong>Related Question:</strong>
-                        <span id="modalRelatedQuestion"></span>
-                    </p>
-
-                    <p>
-                        <strong>Posted By:</strong>
-                        <span id="modalAuthor"></span>
-                    </p>
-
-                    <p>
-                        <strong>Author Email:</strong>
-                        <span id="modalAuthorEmail"></span>
                     </p>
 
                 </div>
@@ -890,59 +948,81 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
                 <hr>
 
 
-                <!-- REPORT DETAILS -->
+                <!-- AUTHOR DETAILS -->
 
                 <div class="detail-section">
 
-                    <h6>Report Details</h6>
+                    <h6>Author Details</h6>
 
                     <p>
-                        <strong>Report ID:</strong>
-                        <span id="modalReportId"></span>
+                        <strong>Author:</strong>
+                        <span id="modalAuthor"></span>
                     </p>
 
                     <p>
-                        <strong>Reported By:</strong>
-                        <span id="modalReporter"></span>
+                        <strong>Email:</strong>
+                        <span id="modalEmail"></span>
                     </p>
 
                     <p>
-                        <strong>Reporter Email:</strong>
-                        <span id="modalReporterEmail"></span>
+                        <strong>Department:</strong>
+                        <span id="modalDepartment"></span>
+                    </p>
+
+                </div>
+
+
+                <hr>
+
+
+                <!-- AI MODERATION DETAILS -->
+
+                <div class="detail-section">
+
+                    <h6>AI Moderation Details</h6>
+
+                    <p>
+                        <strong>AI Decision:</strong>
+                        <span id="modalDecision"></span>
                     </p>
 
                     <p>
-                        <strong>Reason:</strong>
-                        <span id="modalReason"></span>
+                        <strong>Confidence:</strong>
+                        <span id="modalConfidence"></span>
                     </p>
 
                     <p>
-                        <strong>Additional Description:</strong>
+                        <strong>AI Reason:</strong>
                     </p>
 
                     <p
                         class="detail-description"
-                        id="modalReportDescription"
+                        id="modalReason"
                     ></p>
 
                     <p>
-                        <strong>Reported At:</strong>
-                        <span id="modalReportedAt"></span>
-                    </p>
-
-                    <p>
-                        <strong>Report Status:</strong>
-                        <span id="modalStatus"></span>
-                    </p>
-
-                    <p>
-                        <strong>Admin Note:</strong>
+                        <strong>Detected Violations:</strong>
                     </p>
 
                     <p
                         class="detail-description"
-                        id="modalAdminNote"
+                        id="modalViolations"
                     ></p>
+
+                    <p>
+                        <strong>AI Model:</strong>
+                        <span id="modalModel"></span>
+                    </p>
+
+                    <p>
+                        <strong>API Status:</strong>
+                        <span id="modalApiStatus"></span>
+                    </p>
+
+                    <p>
+                        <strong>Moderation Date:</strong>
+                        <span id="modalDate"></span>
+                    </p>
 
                 </div>
 
@@ -968,26 +1048,24 @@ $resolvedReports = $stats['resolved_reports'] ?? 0;
 </div>
 
 
-<!-- BOOTSTRAP JAVASCRIPT -->
+<!-- JAVASCRIPT -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 
 <script src="../assets/js/admin.js"></script>
 
 
-<!-- REPORT DETAILS MODAL JAVASCRIPT -->
-
 <script>
 
 document.addEventListener('DOMContentLoaded', function () {
 
-    const reportModal = document.getElementById('reportModal');
+    const questionModal = document.getElementById('questionModal');
 
-    if (!reportModal) {
+    if (!questionModal) {
         return;
     }
 
-    reportModal.addEventListener('show.bs.modal', function (event) {
+    questionModal.addEventListener('show.bs.modal', function (event) {
 
         const button = event.relatedTarget;
 
@@ -996,50 +1074,40 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function setText(id, value) {
+
             const element = document.getElementById(id);
 
             if (element) {
                 element.textContent = value || 'Not available';
             }
+
         }
 
-        const type = button.dataset.reportType;
-
-        setText('modalReportId', button.dataset.reportId);
-        setText('modalReportType', type);
-        setText('modalContentId', button.dataset.contentId);
-        setText('modalContentTitle', button.dataset.contentTitle);
-        setText('modalContentText', button.dataset.contentText);
+        setText('modalQuestionId', button.dataset.questionId);
+        setText('modalTitle', button.dataset.title);
+        setText('modalDescription', button.dataset.description);
         setText('modalCategory', button.dataset.category);
-        setText('modalRelatedQuestion', button.dataset.relatedQuestion);
+
         setText('modalAuthor', button.dataset.author);
-        setText('modalAuthorEmail', button.dataset.authorEmail);
+        setText('modalEmail', button.dataset.email);
+        setText('modalDepartment', button.dataset.department);
 
-        setText('modalReporter', button.dataset.reporter);
-        setText('modalReporterEmail', button.dataset.reporterEmail);
+        setText('modalDecision', button.dataset.decision);
+
+        const confidence = button.dataset.confidence;
+
+        setText(
+            'modalConfidence',
+            confidence !== '' && confidence !== undefined
+                ? (Number(confidence) * 100).toFixed(1) + '%'
+                : 'Not available'
+        );
+
         setText('modalReason', button.dataset.reason);
-        setText('modalReportDescription', button.dataset.description);
-        setText('modalStatus', button.dataset.status);
-        setText('modalAdminNote', button.dataset.adminNote);
-        setText('modalReportedAt', button.dataset.reportedAt);
-
-        const heading = document.getElementById('modalHeading');
-        const contentHeading = document.getElementById('modalContentHeading');
-        const relatedQuestionRow = document.getElementById('relatedQuestionRow');
-
-        if (type === 'answer') {
-
-            heading.textContent = 'Reported Answer Details';
-            contentHeading.textContent = 'Answer Details';
-            relatedQuestionRow.style.display = '';
-
-        } else {
-
-            heading.textContent = 'Reported Question Details';
-            contentHeading.textContent = 'Question Details';
-            relatedQuestionRow.style.display = 'none';
-
-        }
+        setText('modalViolations', button.dataset.violations);
+        setText('modalModel', button.dataset.model);
+        setText('modalApiStatus', button.dataset.apiStatus);
+        setText('modalDate', button.dataset.date);
 
     });
 

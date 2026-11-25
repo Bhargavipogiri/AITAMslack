@@ -27,9 +27,9 @@ $mainMenu = [
         'link' => '/AITAMslack/admin/answers.php'
     ],
     [
-        'title' => 'Moderation History',
-        'icon' => 'bi-shield-check',
-        'link' => '/AITAMslack/admin/moderation-history.php'
+    'title' => 'Reports Management',
+    'icon' => 'bi-flag',
+    'link' => '/AITAMslack/admin/reports.php'
     ],
     [
         'title' => 'Reported Questions',

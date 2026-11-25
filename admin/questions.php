@@ -14,26 +14,61 @@ function e(mixed $value): string
 }
 
 $csrfToken = admin_csrf_token();
-$statuses = ['PENDING', 'APPROVED', 'REJECTED'];
+
+/*
+|--------------------------------------------------------------------------
+| QUESTION MANAGEMENT FILTER
+|--------------------------------------------------------------------------
+| This page displays only approved questions.
+| Approval can come from AI or an administrator.
+*/
+
+$status = 'APPROVED';
+
 $search = is_string($_GET['search'] ?? null)
     ? trim($_GET['search'])
     : '';
-$status = is_string($_GET['status'] ?? null)
-    ? trim($_GET['status'])
-    : 'PENDING';
-$status = in_array($status, $statuses, true) ? $status : 'PENDING';
+
 $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT);
 $page = ($page && $page > 0) ? $page : 1;
+
 $perPage = 20;
+
 $notice = $_SESSION['flash_message'] ?? '';
 unset($_SESSION['flash_message']);
 
+
+/*
+|--------------------------------------------------------------------------
+| LATEST MODERATION EVENT FOR EACH QUESTION
+|--------------------------------------------------------------------------
+*/
+
+$reviewJoin = "
+    LEFT JOIN moderation_events current_review
+        ON current_review.id = (
+            SELECT MAX(me.id)
+            FROM moderation_events me
+            WHERE me.content_type = 'question'
+              AND me.content_id = q.id
+        )
+";
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN QUESTION REVIEW
+|--------------------------------------------------------------------------
+*/
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
     $questionId = filter_var(
         $_POST['question_id'] ?? null,
         FILTER_VALIDATE_INT,
         ['options' => ['min_range' => 1]]
     );
+
     $action = $_POST['action'] ?? '';
 
     if (!admin_csrf_verify(
@@ -41,32 +76,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? $_POST['csrf_token']
             : null
     )) {
-        $_SESSION['flash_message'] = 'Your session expired. Refresh and try again.';
-    } elseif ($questionId === false || !in_array($action, ['approve', 'reject'], true)) {
-        $_SESSION['flash_message'] = 'Invalid question review details.';
+
+        $_SESSION['flash_message'] =
+            'Your session expired. Refresh and try again.';
+
+    } elseif (
+        $questionId === false ||
+        !in_array($action, ['approve', 'reject'], true)
+    ) {
+
+        $_SESSION['flash_message'] =
+            'Invalid question review details.';
+
     } else {
-        $publicationStatus = $action === 'approve' ? 'APPROVED' : 'REJECTED';
-        $adminDecision = $publicationStatus;
+
+        $publicationStatus = $action === 'approve'
+            ? 'APPROVED'
+            : 'REJECTED';
 
         try {
+
             $pdo->beginTransaction();
 
-            $exists = $pdo->prepare('SELECT id FROM questions WHERE id = :id FOR UPDATE');
-            $exists->execute([':id' => $questionId]);
+            $exists = $pdo->prepare(
+                'SELECT id FROM questions WHERE id = :id FOR UPDATE'
+            );
+
+            $exists->execute([
+                ':id' => $questionId
+            ]);
 
             if (!$exists->fetchColumn()) {
                 throw new RuntimeException('Question not found.');
             }
-
-            $update = $pdo->prepare(
-                'UPDATE questions
-                 SET publication_status = :publication_status
-                 WHERE id = :id'
-            );
-            $update->execute([
-                ':publication_status' => $publicationStatus,
-                ':id' => $questionId,
-            ]);
 
             recordModerationEvent(
                 $pdo,
@@ -76,87 +118,150 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $publicationStatus,
                 [],
                 (int)($_SESSION['admin_id'] ?? 0),
-                $adminDecision
+                $publicationStatus
             );
 
             $pdo->commit();
-            $_SESSION['flash_message'] = 'Question review decision saved.';
+
+            $_SESSION['flash_message'] =
+                $action === 'approve'
+                    ? 'Question approved successfully.'
+                    : 'Question rejected successfully.';
+
         } catch (Throwable $exception) {
+
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
 
             error_log(
                 'Question review update failed: ' .
-                get_class($exception) . ' (' . $exception->getCode() . ')'
+                get_class($exception) .
+                ' (' . $exception->getCode() . ')'
             );
-            $_SESSION['flash_message'] = 'Unable to save the question review decision.';
+
+            $_SESSION['flash_message'] =
+                'Unable to save the question review decision.';
         }
     }
 
-    $redirectParams = [];
-    if ($search !== '') {
-        $redirectParams['search'] = $search;
-    }
-    if ($status !== '') {
-        $redirectParams['status'] = $status;
-    }
-
     $redirectUrl = 'questions.php';
-    if ($redirectParams !== []) {
-        $redirectUrl .= '?' . http_build_query($redirectParams);
+
+    if ($search !== '') {
+        $redirectUrl .= '?' . http_build_query([
+            'search' => $search
+        ]);
     }
 
     header('Location: ' . $redirectUrl);
     exit;
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| SEARCH AND APPROVED-ONLY FILTER
+|--------------------------------------------------------------------------
+*/
+
 $where = [];
 $params = [];
 
 if ($search !== '') {
+
     $where[] = "(
         q.question_title LIKE :title
         OR q.question_description LIKE :description
         OR q.category LIKE :category
         OR CAST(q.user_id AS CHAR) LIKE :user_id
     )";
+
     $keyword = '%' . $search . '%';
+
     $params[':title'] = $keyword;
     $params[':description'] = $keyword;
     $params[':category'] = $keyword;
     $params[':user_id'] = $keyword;
 }
 
-if ($status !== '') {
-    $where[] = 'q.publication_status = :publication_status';
-    $params[':publication_status'] = $status;
-}
+/*
+ * IMPORTANT:
+ * Only the latest APPROVED moderation event is displayed.
+ *
+ * AI APPROVED  -> displayed
+ * ADMIN APPROVED -> displayed
+ * PENDING      -> hidden
+ * REJECTED     -> hidden
+ * REVIEW       -> hidden
+ * FAILED       -> hidden
+ */
 
-$whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
-$countStmt = $pdo->prepare('SELECT COUNT(*) FROM questions q' . $whereSql);
+$where[] = "
+    current_review.publication_status = 'APPROVED'
+";
+
+$whereSql = ' WHERE ' . implode(' AND ', $where);
+
+
+/*
+|--------------------------------------------------------------------------
+| TOTAL FILTERED QUESTIONS
+|--------------------------------------------------------------------------
+*/
+
+$countStmt = $pdo->prepare(
+    'SELECT COUNT(*)
+     FROM questions q
+     ' . $reviewJoin . '
+     ' . $whereSql
+);
+
 $countStmt->execute($params);
+
 $totalFilteredQuestions = (int)$countStmt->fetchColumn();
-$totalPages = max(1, (int)ceil($totalFilteredQuestions / $perPage));
+
+$totalPages = max(
+    1,
+    (int)ceil($totalFilteredQuestions / $perPage)
+);
+
 $page = min($page, $totalPages);
+
 $offset = ($page - 1) * $perPage;
+
+
+/*
+|--------------------------------------------------------------------------
+| FETCH APPROVED QUESTIONS
+|--------------------------------------------------------------------------
+*/
 
 $sql = "
     SELECT
         q.*,
+
+        current_review.publication_status,
+
         author.full_name AS author_name,
         author.email AS author_email,
         author.department AS author_department,
         author.role AS author_role,
+
         ai.ai_decision,
         ai.ai_reason,
         ai.ai_confidence,
-        NULL AS ai_category,
+        ai.category AS ai_category,
         ai.detected_violations,
         ai.model AS ai_model,
         ai.api_status
+
     FROM questions q
-    LEFT JOIN users author ON author.user_id = q.user_id
+
+    LEFT JOIN users author
+        ON author.user_id = q.user_id
+
+    $reviewJoin
+
     LEFT JOIN moderation_events ai
         ON ai.id = (
             SELECT MAX(me.id)
@@ -165,26 +270,71 @@ $sql = "
               AND me.content_id = q.id
               AND me.event_type = 'AI'
         )
+
     $whereSql
+
     ORDER BY q.id DESC
+
     LIMIT $perPage OFFSET $offset
 ";
+
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
+
 $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$totalQuestions = (int)$pdo->query('SELECT COUNT(*) FROM questions')->fetchColumn();
-$pendingQuestions = (int)$pdo->query(
-    "SELECT COUNT(*) FROM questions WHERE publication_status = 'PENDING'"
-)->fetchColumn();
-$publishedQuestions = (int)$pdo->query(
-    "SELECT COUNT(*) FROM questions WHERE publication_status = 'APPROVED'"
-)->fetchColumn();
-$hiddenQuestions = (int)$pdo->query(
-    "SELECT COUNT(*) FROM questions WHERE publication_status = 'REJECTED'"
-)->fetchColumn();
+
+/*
+|--------------------------------------------------------------------------
+| QUESTION STATISTICS
+|--------------------------------------------------------------------------
+| Statistics include all questions, not just approved questions.
+|--------------------------------------------------------------------------
+*/
+
+$statsStmt = $pdo->query("
+    SELECT
+
+        COUNT(*) AS total_questions,
+
+        SUM(
+            CASE
+                WHEN COALESCE(
+                    current_review.publication_status,
+                    'PENDING'
+                ) = 'PENDING'
+                THEN 1 ELSE 0
+            END
+        ) AS pending_questions,
+
+        SUM(
+            CASE
+                WHEN current_review.publication_status = 'APPROVED'
+                THEN 1 ELSE 0
+            END
+        ) AS published_questions,
+
+        SUM(
+            CASE
+                WHEN current_review.publication_status = 'REJECTED'
+                THEN 1 ELSE 0
+            END
+        ) AS hidden_questions
+
+    FROM questions q
+
+    $reviewJoin
+");
+
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+
+$totalQuestions = (int)($stats['total_questions'] ?? 0);
+$pendingQuestions = (int)($stats['pending_questions'] ?? 0);
+$publishedQuestions = (int)($stats['published_questions'] ?? 0);
+$hiddenQuestions = (int)($stats['hidden_questions'] ?? 0);
 
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -228,12 +378,14 @@ $hiddenQuestions = (int)$pdo->query(
 
             <h2>Question Management</h2>
 
-            <p>View and manage questions submitted by users</p>
+            <p>View and manage AI-approved and admin-approved questions</p>
 
         </div>
 
         <?php if ($notice !== ''): ?>
-            <div class="alert alert-info" role="status"><?= e($notice) ?></div>
+            <div class="alert alert-info" role="status">
+                <?= e($notice) ?>
+            </div>
         <?php endif; ?>
 
         <!-- Summary Cards -->
@@ -290,9 +442,9 @@ $hiddenQuestions = (int)$pdo->query(
 
             <div class="panel-heading">
 
-                <h4>Submitted Questions</h4>
+                <h4>Approved Questions</h4>
 
-                <p>Manage questions submitted by registered users</p>
+                <p>Only approved questions are displayed here</p>
 
             </div>
 
@@ -302,24 +454,15 @@ $hiddenQuestions = (int)$pdo->query(
                 <input
                     type="search"
                     name="search"
-                    placeholder="Search questions..."
+                    placeholder="Search approved questions..."
                     value="<?= e($search) ?>"
                 >
 
-                <select name="status">
+                <select name="status" disabled>
 
-                    <option value="">All Review Statuses</option>
-
-                    <?php foreach ($statuses as $availableStatus): ?>
-
-                        <option
-                            value="<?= e($availableStatus) ?>"
-                            <?= $status === $availableStatus ? "selected" : "" ?>
-                        >
-                            <?= e(ucfirst(strtolower($availableStatus))) ?>
-                        </option>
-
-                    <?php endforeach; ?>
+                    <option value="APPROVED" selected>
+                        Approved Questions Only
+                    </option>
 
                 </select>
 
@@ -395,9 +538,11 @@ $hiddenQuestions = (int)$pdo->query(
 
                                 <td>
                                     <?= e($question['author_name'] ?: 'User #' . $question['user_id']) ?>
+
                                     <div class="small text-muted">
                                         <?= e($question['author_email'] ?? '') ?>
                                     </div>
+
                                     <div class="small text-muted">
                                         <?= e($question['author_department'] ?? '') ?>
                                         <?= !empty($question['author_role']) ? ' · ' . e($question['author_role']) : '' ?>
@@ -417,31 +562,55 @@ $hiddenQuestions = (int)$pdo->query(
                                 </td>
 
                                 <td>
-                                    <strong><?= e($question['ai_decision'] ?? 'FAILED') ?></strong>
+
+                                    <strong>
+                                        <?= e($question['ai_decision'] ?? 'FAILED') ?>
+                                    </strong>
+
                                     <div class="small text-muted">
+
                                         <?= e($question['ai_category'] ?? 'No category') ?>
                                         · <?= e($question['api_status'] ?? 'not checked') ?>
+
                                         <?php if ($question['ai_confidence'] !== null): ?>
                                             · <?= e($question['ai_confidence']) ?> confidence
                                         <?php endif; ?>
+
                                     </div>
+
                                     <?php if (!empty($question['ai_model'])): ?>
+
                                         <div class="small text-muted">
                                             <?= e($question['ai_model']) ?>
                                         </div>
+
                                     <?php endif; ?>
+
                                     <?php if (!empty($question['ai_reason'])): ?>
+
                                         <details class="question-details">
-                                            <summary>Review details</summary>
-                                            <p><?= e($question['ai_reason']) ?></p>
+
+                                            <summary>
+                                                Review details
+                                            </summary>
+
+                                            <p>
+                                                <?= e($question['ai_reason']) ?>
+                                            </p>
+
                                             <?php if (!empty($question['detected_violations'])): ?>
+
                                                 <p>
                                                     Flags:
                                                     <?= e($question['detected_violations']) ?>
                                                 </p>
+
                                             <?php endif; ?>
+
                                         </details>
+
                                     <?php endif; ?>
+
                                 </td>
 
                                 <td>
@@ -455,41 +624,6 @@ $hiddenQuestions = (int)$pdo->query(
                                 <td>
 
                                     <div class="question-actions">
-
-                                        <?php if ($currentStatus !== 'APPROVED'): ?>
-
-                                            <form method="POST">
-
-                                                <input
-                                                    type="hidden"
-                                                    name="csrf_token"
-                                                    value="<?= e($csrfToken) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="question_id"
-                                                    value="<?= e($question["id"]) ?>"
-                                                >
-
-                                                <input
-                                                    type="hidden"
-                                                    name="action"
-                                                    value="approve"
-                                                >
-
-                                                <button
-                                                    type="submit"
-                                                    class="publish-btn"
-                                                    title="Approve Question"
-                                                    onclick="return confirm('Approve and publish this question?')"
-                                                >
-                                                    <i class="bi bi-check-circle"></i>
-                                                </button>
-
-                                            </form>
-
-                                        <?php endif; ?>
 
                                         <?php if ($currentStatus !== 'REJECTED'): ?>
 
@@ -539,7 +673,7 @@ $hiddenQuestions = (int)$pdo->query(
                         <tr>
 
                             <td colspan="8" class="text-center">
-                                No questions found.
+                                No approved questions found.
                             </td>
 
                         </tr>
@@ -562,7 +696,6 @@ $hiddenQuestions = (int)$pdo->query(
                         <a
                             href="?<?= e(http_build_query([
                                 "search" => $search,
-                                "status" => $status,
                                 "page" => $i
                             ])) ?>"
                             class="<?= $page === $i ? "active" : "" ?>"

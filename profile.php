@@ -1,3 +1,4 @@
+
 <?php
 session_start();
 
@@ -7,6 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userId = filter_var($_SESSION['user_id'], FILTER_VALIDATE_INT);
+
 if ($userId === false || $userId < 1) {
     header('Location: login.php');
     exit;
@@ -20,13 +22,15 @@ require_once __DIR__ . '/config/db.php';
 
 try {
     $userStmt = $pdo->prepare(
-        'SELECT full_name, email, department, role, points
+        'SELECT full_name, email, department, role, points, profile_image
          FROM users
          WHERE user_id = :user_id
          LIMIT 1'
     );
+
     $userStmt->execute([':user_id' => $userId]);
     $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+
 } catch (PDOException $exception) {
     error_log('Profile load error: ' . $exception->getMessage());
     http_response_code(500);
@@ -51,10 +55,20 @@ $formatActivityDate = static function ($value): string {
     }
 
     $timestamp = strtotime($value);
+
     return $timestamp === false ? '' : date('M j, Y', $timestamp);
 };
 
+/* =====================================
+   PROFILE QUESTIONS AND ANSWERS
+===================================== */
+
 $defaultQuestions = [];
+
+/* =====================================
+   FETCH MY QUESTIONS
+===================================== */
+
 try {
     $questionsStmt = $pdo->prepare(
         "SELECT id, question_title, question_description, category, created_at
@@ -63,6 +77,7 @@ try {
            AND publication_status = 'APPROVED'
          ORDER BY created_at DESC"
     );
+
     $questionsStmt->execute([':user_id' => $userId]);
 
     foreach ($questionsStmt->fetchAll(PDO::FETCH_ASSOC) as $question) {
@@ -78,17 +93,22 @@ try {
             'date' => $formatActivityDate($question['created_at'] ?? null),
         ];
     }
+
 } catch (PDOException $exception) {
     try {
         $questionsStmt = $pdo->prepare(
-            "SELECT q.id, q.title AS question_title, q.body AS question_description,
-                    c.name AS category, q.created_at
+            "SELECT q.id,
+                    q.title AS question_title,
+                    q.body AS question_description,
+                    c.name AS category,
+                    q.created_at
              FROM questions q
              LEFT JOIN categories c ON c.id = q.category_id
              WHERE q.user_id = :user_id
                AND q.publication_status = 'APPROVED'
              ORDER BY q.created_at DESC"
         );
+
         $questionsStmt->execute([':user_id' => $userId]);
 
         foreach ($questionsStmt->fetchAll(PDO::FETCH_ASSOC) as $question) {
@@ -104,6 +124,7 @@ try {
                 'date' => $formatActivityDate($question['created_at'] ?? null),
             ];
         }
+
     } catch (PDOException $fallbackException) {
         error_log(
             'Profile question history unavailable: '
@@ -114,16 +135,33 @@ try {
     }
 }
 
+/* =====================================
+   FETCH MY ANSWERS
+   answers.status:
+   Published / Pending / Hidden
+===================================== */
+
 try {
     $answersStmt = $pdo->prepare(
-        "SELECT a.id, a.answer_text, a.publication_status, a.created_at,
-                q.id AS question_id, q.question_title,
-                q.question_description, q.category
+        "SELECT
+            a.id,
+            a.answer_text,
+            CASE a.status
+                WHEN 'Published' THEN 'APPROVED'
+                WHEN 'Pending' THEN 'PENDING'
+                ELSE 'REJECTED'
+            END AS publication_status,
+            a.created_at,
+            q.id AS question_id,
+            q.question_title,
+            q.question_description,
+            q.category
          FROM answers a
          INNER JOIN questions q ON q.id = a.question_id
          WHERE a.user_id = :user_id
          ORDER BY a.created_at DESC"
     );
+
     $answersStmt->execute([':user_id' => $userId]);
 
     foreach ($answersStmt->fetchAll(PDO::FETCH_ASSOC) as $answer) {
@@ -134,24 +172,38 @@ try {
             'description' => (string)($answer['question_description'] ?? ''),
             'answer' => (string)($answer['answer_text'] ?? ''),
             'category' => (string)($answer['category'] ?? ''),
-            'publication_status' => strtoupper((string)($answer['publication_status'] ?? 'PENDING')),
+            'publication_status' => strtoupper(
+                (string)($answer['publication_status'] ?? 'PENDING')
+            ),
             'likes' => 0,
             'replies' => 0,
             'date' => $formatActivityDate($answer['created_at'] ?? null),
         ];
     }
+
 } catch (PDOException $exception) {
     try {
         $answersStmt = $pdo->prepare(
-            "SELECT a.id, a.answer_text, a.publication_status, a.created_at,
-                    q.id AS question_id, q.title AS question_title,
-                    q.body AS question_description, c.name AS category
+            "SELECT
+                a.id,
+                a.answer_text,
+                CASE a.status
+                    WHEN 'Published' THEN 'APPROVED'
+                    WHEN 'Pending' THEN 'PENDING'
+                    ELSE 'REJECTED'
+                END AS publication_status,
+                a.created_at,
+                q.id AS question_id,
+                q.title AS question_title,
+                q.body AS question_description,
+                c.name AS category
              FROM answers a
              INNER JOIN questions q ON q.id = a.question_id
              LEFT JOIN categories c ON c.id = q.category_id
              WHERE a.user_id = :user_id
              ORDER BY a.created_at DESC"
         );
+
         $answersStmt->execute([':user_id' => $userId]);
 
         foreach ($answersStmt->fetchAll(PDO::FETCH_ASSOC) as $answer) {
@@ -162,12 +214,15 @@ try {
                 'description' => (string)($answer['question_description'] ?? ''),
                 'answer' => (string)($answer['answer_text'] ?? ''),
                 'category' => (string)($answer['category'] ?? ''),
-                'publication_status' => strtoupper((string)($answer['publication_status'] ?? 'PENDING')),
+                'publication_status' => strtoupper(
+                    (string)($answer['publication_status'] ?? 'PENDING')
+                ),
                 'likes' => 0,
                 'replies' => 0,
                 'date' => $formatActivityDate($answer['created_at'] ?? null),
             ];
         }
+
     } catch (PDOException $fallbackException) {
         error_log(
             'Profile answer history unavailable: '
@@ -178,6 +233,53 @@ try {
     }
 }
 
+/* =====================================
+   FETCH QUESTIONS FROM OTHER USERS
+   ALL APPROVED QUESTIONS EXCEPT OWN
+===================================== */
+
+$availableQuestions = [];
+
+try {
+    $availableQuestionsStmt = $pdo->prepare(
+        "SELECT
+            q.id,
+            q.user_id,
+            q.question_title,
+            q.question_description,
+            q.category,
+            q.created_at,
+            u.full_name AS author_name
+         FROM questions q
+         LEFT JOIN users u ON u.user_id = q.user_id
+         WHERE q.publication_status = 'APPROVED'
+           AND q.user_id <> :user_id
+         ORDER BY q.created_at DESC"
+    );
+
+    $availableQuestionsStmt->execute([
+        ':user_id' => $userId
+    ]);
+
+    foreach ($availableQuestionsStmt->fetchAll(PDO::FETCH_ASSOC) as $question) {
+        $availableQuestions[] = [
+            'id' => (int)$question['id'],
+            'title' => (string)($question['question_title'] ?? ''),
+            'description' => (string)($question['question_description'] ?? ''),
+            'category' => (string)($question['category'] ?? ''),
+            'author' => (string)($question['author_name'] ?? 'Student'),
+            'date' => $formatActivityDate($question['created_at'] ?? null),
+        ];
+    }
+
+} catch (PDOException $exception) {
+    error_log('Available questions fetch error: ' . $exception->getMessage());
+}
+
+/* =====================================
+   DEFAULT PROFILE
+===================================== */
+
 $defaultProfile = [
     'name' => (string)$user['full_name'],
     'email' => (string)$user['email'],
@@ -186,27 +288,50 @@ $defaultProfile = [
     'points' => (float)($user['points'] ?? 0),
     'profile_image' => '',
 ];
+
 $storedProfileImage = trim((string)($user['profile_image'] ?? ''));
+
 $profileImageFile = $storedProfileImage !== ''
-    ? ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $storedProfileImage), DIRECTORY_SEPARATOR)
+    ? ltrim(
+        str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $storedProfileImage),
+        DIRECTORY_SEPARATOR
+    )
     : '';
-if ($profileImageFile !== '' && is_file(__DIR__ . DIRECTORY_SEPARATOR . $profileImageFile)) {
+
+if (
+    $profileImageFile !== ''
+    && is_file(__DIR__ . DIRECTORY_SEPARATOR . $profileImageFile)
+) {
     $defaultProfile['profile_image'] = $storedProfileImage;
 }
+
 $displayProfileName = trim($defaultProfile['name']);
+
 if (strcasecmp((string)$defaultProfile['role'], 'faculty') === 0) {
-    $displayProfileName = trim(preg_replace('/^Sri\s+/iu', '', $displayProfileName) ?? $displayProfileName);
+    $displayProfileName = trim(
+        preg_replace('/^Sri\s+/iu', '', $displayProfileName) ?? $displayProfileName
+    );
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>AITAM Slack | My Profile</title>
+
 <link rel="stylesheet" href="assets/css/root.css">
 
 <style>
+
+/* =====================================
+   GLOBAL STYLES
+===================================== */
+
 :root {
   --navy:var(--color-navy-950);
   --blue:var(--color-blue-800);
@@ -222,7 +347,6 @@ if (strcasecmp((string)$defaultProfile['role'], 'faculty') === 0) {
   --success:var(--color-success);
   --shadow:var(--shadow-md);
 }
-
 
 * {
   box-sizing:border-box;
@@ -251,10 +375,19 @@ select:focus-visible {
   outline-offset:3px;
 }
 
+/* =====================================
+   PAGE
+===================================== */
+
 .page {
   width:min(1000px,calc(100% - 40px));
   margin:40px auto 60px;
+  max-width:1080px;
 }
+
+/* =====================================
+   PROFILE CARD
+===================================== */
 
 .profile-card {
   background:var(--surface);
@@ -262,29 +395,54 @@ select:focus-visible {
   border-radius:24px;
   overflow:hidden;
   box-shadow:var(--shadow);
+  transition:box-shadow .25s ease, transform .25s ease;
+}
+
+.profile-card:hover {
+  box-shadow:0 16px 42px rgba(15,40,84,.12);
 }
 
 .profile-cover {
-  height:170px;
+  height:190px;
   background:
     radial-gradient(circle at 85% 20%,rgba(189,232,245,.45),transparent 25%),
     radial-gradient(circle at 15% 100%,rgba(73,136,196,.4),transparent 35%),
     linear-gradient(125deg,#0F2854,#1C4D8D 60%,#4988C4);
   position:relative;
+  overflow:hidden;
+}
+
+.profile-cover::before,
+.profile-cover::after {
+  content:"";
+  position:absolute;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:50%;
+  width:310px;
+  height:310px;
+  right:8%;
+  top:-205px;
+}
+
+.profile-cover::after {
+  width:210px;
+  height:210px;
+  right:24%;
+  top:-125px;
 }
 
 .cover-decoration {
   position:absolute;
-  right:35px;
-  bottom:20px;
+  right:30px;
+  bottom:8px;
   color:rgba(255,255,255,.18);
-  font-size:90px;
+  font-size:clamp(70px,10vw,118px);
   font-weight:800;
   letter-spacing:-8px;
 }
 
 .profile-main {
-  padding:0 38px 32px;
+  padding:0 38px 35px;
 }
 
 .profile-top {
@@ -385,6 +543,10 @@ select:focus-visible {
   display:none;
 }
 
+/* =====================================
+   PROFILE ACTIONS
+===================================== */
+
 .profile-actions {
   display:flex;
   gap:10px;
@@ -401,6 +563,7 @@ select:focus-visible {
   background:var(--surface);
   color:var(--text);
   transition:.2s;
+  box-shadow:0 2px 5px rgba(15,40,84,.04);
 }
 
 .btn:hover {
@@ -412,11 +575,16 @@ select:focus-visible {
   background:var(--blue);
   color:white;
   border-color:var(--blue);
+  box-shadow:0 7px 16px rgba(28,77,141,.2);
 }
 
 .btn-primary:hover {
   background:var(--navy);
 }
+
+/* =====================================
+   PROFILE DETAILS
+===================================== */
 
 .profile-details {
   margin-top:20px;
@@ -425,7 +593,7 @@ select:focus-visible {
 .profile-name {
   font-size:30px;
   font-weight:750;
-  letter-spacing:-.7px;
+  letter-spacing:-1px;
   margin:0 0 8px;
 }
 
@@ -433,12 +601,26 @@ select:focus-visible {
   color:var(--secondary-text);
   font-size:14px;
   margin-bottom:15px;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
 }
 
+.profile-role-badge {
+  font-size:11px;
+  font-weight:750;
+  letter-spacing:.3px;
+  color:#14734f;
+  background:#e6f7ef;
+  border:1px solid #c6eedb;
+  border-radius:999px;
+  padding:4px 9px;
+}
 
 .profile-meta {
   display:flex;
-  gap:20px;
+  gap:10px;
   flex-wrap:wrap;
   margin-top:20px;
   color:var(--secondary-text);
@@ -449,13 +631,81 @@ select:focus-visible {
   display:flex;
   align-items:center;
   gap:7px;
+  padding:9px 12px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:var(--surface);
 }
 
-.meta-item span {
+.meta-item span:first-child {
+  font-size:15px;
   color:var(--blue);
 }
 
-/* Registration information */
+/* =====================================
+   PROFILE COMPLETION
+===================================== */
+
+.profile-progress {
+  margin-top:23px;
+  max-width:450px;
+}
+
+.progress-top {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  color:var(--muted);
+  font-size:12px;
+  margin-bottom:8px;
+}
+
+.progress-track {
+  height:7px;
+  border-radius:99px;
+  overflow:hidden;
+  background:#e8eff6;
+}
+
+.progress-fill {
+  height:100%;
+  width:0;
+  border-radius:inherit;
+  background:linear-gradient(90deg,var(--secondary),#68c3d8);
+  transition:width .35s ease;
+}
+
+/* =====================================
+   QUICK ACTIONS
+===================================== */
+
+.profile-quick-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:15px;
+}
+
+.quick-action {
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--blue);
+  border-radius:9px;
+  padding:8px 11px;
+  font-size:12px;
+  font-weight:700;
+  transition:.2s;
+}
+
+.quick-action:hover {
+  background:#eef6fc;
+  border-color:#b8d4ed;
+  transform:translateY(-1px);
+}
+
+/* =====================================
+   CONTENT
+===================================== */
 
 .content {
   margin-top:26px;
@@ -466,16 +716,36 @@ select:focus-visible {
 .card {
   background:var(--surface);
   border:1px solid var(--border);
-  border-radius:18px;
+  border-radius:20px;
   padding:28px;
   box-shadow:var(--shadow);
+  transition:box-shadow .25s ease, transform .25s ease;
+}
+
+.card:hover {
+  box-shadow:0 16px 42px rgba(15,40,84,.12);
 }
 
 .section-title {
   font-size:19px;
   font-weight:750;
   margin:0 0 24px;
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
+
+.section-title::before {
+  content:"";
+  width:5px;
+  height:20px;
+  border-radius:9px;
+  background:linear-gradient(var(--secondary),var(--cyan));
+}
+
+/* =====================================
+   PROFILE INFORMATION
+===================================== */
 
 .info-grid {
   display:grid;
@@ -485,14 +755,26 @@ select:focus-visible {
 
 .info-item {
   min-width:0;
+  padding:14px 15px;
+  border:1px solid var(--border);
+  border-radius:13px;
+  background:var(--surface);
+  transition:transform .18s,border-color .18s;
+}
+
+.info-item:hover {
+  transform:translateY(-2px);
+  border-color:#b9d4eb;
 }
 
 .info-label {
   display:block;
   color:var(--muted);
-  font-size:12px;
+  font-size:10px;
   font-weight:650;
   margin-bottom:8px;
+  text-transform:uppercase;
+  letter-spacing:.55px;
 }
 
 .info-value {
@@ -512,35 +794,46 @@ select:focus-visible {
   text-decoration:underline;
 }
 
-
-
-
-/* Questions and profile tabs */
+/* =====================================
+   PROFILE TABS
+===================================== */
 
 .profile-tabs {
   display:flex;
-  gap:8px;
-  border-bottom:1px solid var(--border);
-  margin:-4px 0 22px;
+  gap:4px;
+  padding:5px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--muted-bg);
+  margin:0 0 24px;
   overflow-x:auto;
 }
 
 .profile-tab {
   border:0;
-  border-bottom:3px solid transparent;
+  border-radius:10px;
   background:transparent;
   color:var(--secondary-text);
-  padding:12px 16px;
+  padding:12px 17px;
   font-weight:700;
   white-space:nowrap;
+  transition:background .2s,color .2s,box-shadow .2s;
 }
 
 .profile-tab.active {
+  background:var(--surface);
   color:var(--blue);
-  border-bottom-color:var(--blue);
+  box-shadow:0 3px 10px rgba(15,40,84,.09);
 }
 
-.community-panel { color:var(--secondary-text); line-height:1.7; }
+/* =====================================
+   ACTIVITY HEADER
+===================================== */
+
+.community-panel {
+  color:var(--secondary-text);
+  line-height:1.7;
+}
 
 .questions-header {
   display:flex;
@@ -563,9 +856,22 @@ select:focus-visible {
   border-radius:8px;
 }
 
+/* =====================================
+   QUESTION ITEMS
+===================================== */
+
 .question-item {
-  padding:22px 0;
-  border-bottom:1px solid var(--border);
+  padding:20px;
+  margin:0 -2px;
+  border:1px solid transparent;
+  border-bottom-color:var(--border);
+  border-radius:14px;
+  transition:background .2s,border-color .2s;
+}
+
+.question-item:hover {
+  background:var(--surface);
+  border-color:var(--border);
 }
 
 .question-item:first-child {
@@ -578,6 +884,10 @@ select:focus-visible {
 }
 
 .question-category {
+  display:inline-flex;
+  padding:5px 9px;
+  border-radius:999px;
+  background:var(--muted-bg);
   color:var(--blue);
   font-size:11px;
   font-weight:750;
@@ -591,6 +901,44 @@ select:focus-visible {
   flex-wrap:wrap;
   gap:8px;
 }
+
+.question-title {
+  font-size:16px;
+  line-height:1.5;
+  font-weight:700;
+  margin:12px 0 10px;
+}
+
+.question-description {
+  font-size:14px;
+  color:var(--secondary-text);
+  line-height:1.7;
+  margin:0 0 16px;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+
+.question-answer {
+  margin:14px 0 16px;
+  padding:14px 16px;
+  border-left:4px solid var(--secondary);
+  border-radius:0 10px 10px 0;
+  background:var(--muted-bg);
+  color:var(--text);
+  font-size:14px;
+  line-height:1.7;
+  white-space:pre-wrap;
+}
+
+.question-answer strong {
+  display:block;
+  margin-bottom:5px;
+  color:var(--blue);
+}
+
+/* =====================================
+   ANSWER STATUS
+===================================== */
 
 .answer-status {
   display:inline-flex;
@@ -615,38 +963,9 @@ select:focus-visible {
   color:#991b1b;
 }
 
-.question-title {
-  font-size:16px;
-  line-height:1.5;
-  font-weight:700;
-  margin:10px 0;
-}
-
-.question-description {
-  font-size:14px;
-  color:var(--secondary-text);
-  line-height:1.7;
-  margin:0 0 16px;
-  white-space:pre-wrap;
-}
-
-.question-answer {
-  margin:14px 0 16px;
-  padding:14px 16px;
-  border-left:4px solid var(--secondary);
-  border-radius:0 10px 10px 0;
-  background:var(--muted-bg);
-  color:var(--text);
-  font-size:14px;
-  line-height:1.7;
-  white-space:pre-wrap;
-}
-
-.question-answer strong {
-  display:block;
-  margin-bottom:5px;
-  color:var(--blue);
-}
+/* =====================================
+   QUESTION STATS
+===================================== */
 
 .question-stats {
   display:flex;
@@ -659,10 +978,12 @@ select:focus-visible {
 
 .stat-button {
   border:none;
-  background:none;
+  background:var(--muted-bg);
   color:inherit;
-  padding:0;
+  padding:7px 10px;
+  border-radius:8px;
   font-size:12px;
+  transition:background .2s;
 }
 
 .stat-button:hover,
@@ -674,12 +995,48 @@ select:focus-visible {
   margin-left:auto;
 }
 
+/* =====================================
+   ANSWER QUESTION BUTTON
+===================================== */
+
+.answer-question-button {
+  display:inline-block;
+  margin-top:15px;
+  padding:10px 17px;
+  background:var(--blue);
+  color:#fff;
+  border:1px solid var(--blue);
+  border-radius:9px;
+  text-decoration:none;
+  font-size:13px;
+  font-weight:700;
+  transition:.2s ease;
+}
+
+.answer-question-button:hover {
+  background:var(--navy);
+  transform:translateY(-2px);
+}
+
+.answer-author {
+  color:var(--muted);
+  font-size:12px;
+  margin-top:10px;
+}
+
+/* =====================================
+   EMPTY STATE
+===================================== */
+
 .empty-state {
   padding:35px 15px;
   text-align:center;
   color:var(--muted);
   font-size:14px;
   line-height:1.8;
+  border:1px dashed var(--border);
+  border-radius:15px;
+  background:var(--surface);
 }
 
 .empty-icon {
@@ -687,13 +1044,9 @@ select:focus-visible {
   margin-bottom:10px;
 }
 
-.ask-button {
-  display:inline-block;
-  text-decoration:none;
-  margin-top:12px;
-}
-
-/* Edit form */
+/* =====================================
+   EDIT PROFILE MODAL
+===================================== */
 
 .modal-overlay {
   position:fixed;
@@ -705,10 +1058,13 @@ select:focus-visible {
   padding:20px;
   background:rgba(5,20,43,.65);
   backdrop-filter:blur(5px);
+  opacity:0;
+  transition:opacity .18s ease;
 }
 
 .modal-overlay.show {
   display:flex;
+  opacity:1;
 }
 
 .modal {
@@ -720,6 +1076,19 @@ select:focus-visible {
   border-radius:22px;
   padding:30px;
   box-shadow:0 25px 70px rgba(0,0,0,.2);
+  animation:modalIn .2s ease-out;
+}
+
+@keyframes modalIn {
+  from {
+    opacity:0;
+    transform:translateY(10px) scale(.985);
+  }
+
+  to {
+    opacity:1;
+    transform:translateY(0) scale(1);
+  }
 }
 
 .modal-header {
@@ -783,12 +1152,24 @@ select:focus-visible {
   min-height:90px;
 }
 
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color:var(--secondary);
+  background:var(--surface);
+  box-shadow:0 0 0 4px rgba(73,136,196,.12);
+}
+
 .modal-actions {
   display:flex;
   justify-content:flex-end;
   gap:12px;
   margin-top:25px;
 }
+
+/* =====================================
+   TOAST
+===================================== */
 
 .toast {
   position:fixed;
@@ -803,6 +1184,20 @@ select:focus-visible {
   z-index:200;
   box-shadow:var(--shadow);
   transition:transform .3s;
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+
+.toast::before {
+  content:"✓";
+  display:grid;
+  place-items:center;
+  width:21px;
+  height:21px;
+  border-radius:50%;
+  background:#ffffff24;
+  font-weight:800;
 }
 
 .toast.show {
@@ -817,21 +1212,27 @@ select:focus-visible {
   content:"!";
 }
 
+/* =====================================
+   RESPONSIVE DESIGN
+===================================== */
+
 @media(max-width:700px) {
+
   .page {
     width:calc(100% - 24px);
     margin:18px auto 35px;
   }
 
   .profile-cover {
-    height:125px;
+    height:145px;
   }
 
   .profile-main {
     padding:0 20px 23px;
   }
 
-  .avatar-wrap,.avatar {
+  .avatar-wrap,
+  .avatar {
     width:100px;
     height:100px;
   }
@@ -896,9 +1297,24 @@ select:focus-visible {
   .question-date {
     margin-left:0;
   }
+
+  .profile-progress {
+    max-width:none;
+  }
+
+  .profile-tabs {
+    width:100%;
+  }
+
+  .profile-tab {
+    flex:1;
+    padding:11px 8px;
+    font-size:13px;
+  }
 }
 
 @media(max-width:400px) {
+
   .profile-top {
     flex-direction:column;
   }
@@ -912,67 +1328,17 @@ select:focus-visible {
   }
 }
 
-
-/* Polished, interactive profile enhancements */
-body {
-  background:
-    radial-gradient(ellipse at 8% 0%, rgba(189,232,245,.32), transparent 32%),
-    radial-gradient(ellipse at 92% 8%, rgba(73,136,196,.12), transparent 28%),
-    var(--bg);
+@media(prefers-reduced-motion:reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:.01ms !important;
+    transition-duration:.01ms !important;
+  }
 }
-.page { max-width: 1080px; }
-.profile-card, .card { transition: box-shadow .25s ease, transform .25s ease; }
-.profile-card:hover, .card:hover { box-shadow: 0 16px 42px rgba(15,40,84,.12); }
-.profile-cover { height:190px; overflow:hidden; }
-.profile-cover::before, .profile-cover::after {
-  content:""; position:absolute; border:1px solid rgba(255,255,255,.18); border-radius:50%;
-  width:310px; height:310px; right:8%; top:-205px;
-}
-.profile-cover::after { width:210px; height:210px; right:24%; top:-125px; }
-.cover-decoration { font-size:clamp(70px,10vw,118px); right:30px; bottom:8px; }
-.profile-main { padding-bottom:35px; }
-.profile-name { letter-spacing:-1px; }
-.profile-subtitle { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
-.profile-role-badge { font-size:11px; font-weight:750; letter-spacing:.3px; color:#14734f; background:#e6f7ef; border:1px solid #c6eedb; border-radius:999px; padding:4px 9px; }
-.profile-meta { gap:10px; }
-.meta-item { padding:9px 12px; border:1px solid var(--border); border-radius:999px; background:var(--surface); }
-.meta-item span:first-child { font-size:15px; }
-.btn { box-shadow:0 2px 5px rgba(15,40,84,.04); }
-.btn-primary { box-shadow:0 7px 16px rgba(28,77,141,.2); }
-.card { border-radius:20px; }
-.section-title { display:flex; align-items:center; gap:10px; }
-.section-title::before { content:""; width:5px; height:20px; border-radius:9px; background:linear-gradient(var(--secondary),var(--cyan)); }
-.info-item { padding:14px 15px; border:1px solid var(--border); border-radius:13px; background:var(--surface); transition:transform .18s,border-color .18s; }
-.info-item:hover { transform:translateY(-2px); border-color:#b9d4eb; }
-.info-label { text-transform:uppercase; letter-spacing:.55px; font-size:10px; }
-.profile-tabs { gap:4px; padding:5px; border:1px solid var(--border); border-radius:14px; background:var(--muted-bg); margin:0 0 24px; }
-.profile-tab { border:0; border-radius:10px; padding:12px 17px; transition:background .2s,color .2s,box-shadow .2s; }
-.profile-tab.active { background:var(--surface); color:var(--blue); box-shadow:0 3px 10px rgba(15,40,84,.09); }
-.question-item { padding:20px; margin:0 -2px; border:1px solid transparent; border-bottom-color:var(--border); border-radius:14px; transition:background .2s,border-color .2s; }
-.question-item:hover { background:var(--surface); border-color:var(--border); }
-.question-category { display:inline-flex; padding:5px 9px; border-radius:999px; background:var(--muted-bg); }
-.question-title { margin-top:12px; }
-.stat-button { padding:7px 10px; border-radius:8px; background:var(--muted-bg); transition:background .2s; }
-.stat-button:hover { background:var(--muted-bg); }
-.empty-state { border:1px dashed var(--border); border-radius:15px; background:var(--surface); }
-.modal { animation:modalIn .2s ease-out; }
-@keyframes modalIn { from { opacity:0; transform:translateY(10px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
-.modal-overlay { opacity:0; transition:opacity .18s ease; }
-.modal-overlay.show { opacity:1; }
-.form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color:var(--secondary); background:var(--surface); box-shadow:0 0 0 4px rgba(73,136,196,.12); }
-.toast { display:flex; align-items:center; gap:9px; }
-.toast::before { content:"✓"; display:grid; place-items:center; width:21px; height:21px; border-radius:50%; background:#ffffff24; font-weight:800; }
-.profile-progress { margin-top:23px; max-width:450px; }
-.progress-top { display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:12px; margin-bottom:8px; }
-.progress-track { height:7px; border-radius:99px; overflow:hidden; background:#e8eff6; }
-.progress-fill { height:100%; width:0; border-radius:inherit; background:linear-gradient(90deg,var(--secondary),#68c3d8); transition:width .35s ease; }
-.profile-quick-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:15px; }
-.quick-action { border:1px solid var(--border); background:var(--surface); color:var(--blue); border-radius:9px; padding:8px 11px; font-size:12px; font-weight:700; transition:.2s; }
-.quick-action:hover { background:#eef6fc; border-color:#b8d4ed; transform:translateY(-1px); }
-@media(max-width:700px) { .profile-cover { height:145px; } .profile-progress { max-width:none; } .profile-tabs { width:100%; } .profile-tab { flex:1; padding:11px 8px; font-size:13px; } }
-@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
 
 </style>
+
 </head>
 
 <body>
@@ -981,7 +1347,8 @@ body {
 
 <main class="page">
 
-  <!-- STUDENT PROFILE -->
+  <!-- PROFILE -->
+
   <section class="profile-card">
 
     <div class="profile-cover">
@@ -993,6 +1360,7 @@ body {
       <div class="profile-top">
 
         <div class="avatar-wrap">
+
           <div class="avatar" id="profileAvatar"></div>
 
           <button class="photo-upload"
@@ -1001,11 +1369,24 @@ body {
                   aria-label="Upload profile picture">+</button>
 
           <div class="photo-menu" id="photoMenu" role="menu" hidden>
-            <button type="button" id="updatePhotoButton" role="menuitem">Update Photo</button>
-            <button type="button" id="removePhotoButton" class="remove-photo" role="menuitem">Remove Photo</button>
+
+            <button type="button" id="updatePhotoButton" role="menuitem">
+              Update Photo
+            </button>
+
+            <button type="button"
+                    id="removePhotoButton"
+                    class="remove-photo"
+                    role="menuitem">
+              Remove Photo
+            </button>
+
           </div>
 
-          <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp">
+          <input type="file"
+                 id="photoInput"
+                 accept="image/jpeg,image/png,image/webp">
+
         </div>
 
         <div class="profile-actions">
@@ -1013,12 +1394,16 @@ body {
           <button class="btn btn-primary" id="editButton" type="button">
             ✎ Edit Profile
           </button>
+
         </div>
 
       </div>
 
       <div class="profile-details">
-        <h1 class="profile-name" id="profileName"><?= htmlspecialchars($displayProfileName, ENT_QUOTES, 'UTF-8') ?></h1>
+
+        <h1 class="profile-name" id="profileName">
+          <?= htmlspecialchars($displayProfileName, ENT_QUOTES, 'UTF-8') ?>
+        </h1>
 
         <div class="profile-subtitle" id="profileSubtitle">
           <span id="profileSubtitleText"></span>
@@ -1026,49 +1411,137 @@ body {
         </div>
 
         <div class="profile-meta">
-          <div class="meta-item"><span>⌖</span><span id="profileDepartment">Department not provided</span></div>
-          <div class="meta-item"><span>▣</span><span id="profileRole">Role not provided</span></div>
-          <div class="meta-item"><span>✉</span><span id="profileEmail">Email not provided</span></div>
+
+          <div class="meta-item">
+            <span>⌖</span>
+            <span id="profileDepartment">Department not provided</span>
+          </div>
+
+          <div class="meta-item">
+            <span>▣</span>
+            <span id="profileRole">Role not provided</span>
+          </div>
+
+          <div class="meta-item">
+            <span>✉</span>
+            <span id="profileEmail">Email not provided</span>
+          </div>
+
         </div>
+
         <div class="profile-progress" aria-label="Profile completion">
-          <div class="progress-top"><span>Profile completeness</span><strong id="completionText">0%</strong></div>
-          <div class="progress-track"><div class="progress-fill" id="completionFill"></div></div>
+
+          <div class="progress-top">
+            <span>Profile completeness</span>
+            <strong id="completionText">0%</strong>
+          </div>
+
+          <div class="progress-track">
+            <div class="progress-fill" id="completionFill"></div>
+          </div>
+
         </div>
+
         <div class="profile-quick-actions">
-          <button class="quick-action" id="copyEmailButton" type="button">✉ Copy email</button>
-          <button class="quick-action" id="viewQuestionsButton" type="button">▤ View my questions</button>
+
+          <button class="quick-action" id="copyEmailButton" type="button">
+            ✉ Copy email
+          </button>
+
+          <button class="quick-action" id="viewQuestionsButton" type="button">
+            ▤ View my questions
+          </button>
+
         </div>
+
       </div>
+
     </div>
+
   </section>
 
   <div class="content">
 
     <!-- PROFILE INFORMATION -->
+
     <section class="card">
+
       <h2 class="section-title">Profile Information</h2>
+
       <div class="info-grid" id="infoGrid"></div>
+
     </section>
 
-    <!-- QUESTIONS ONLY -->
+    <!-- PROFILE ACTIVITY -->
+
     <section class="card">
 
-      <nav class="profile-tabs" role="tablist" aria-label="My profile activity">
-        <button class="profile-tab active" type="button" role="tab" aria-selected="true" data-tab="questions">Questions</button>
-        <button class="profile-tab" type="button" role="tab" aria-selected="false" data-tab="answers">Answers</button>
-        <button class="profile-tab" type="button" role="tab" aria-selected="false" data-tab="community">Community</button>
+      <nav class="profile-tabs"
+           role="tablist"
+           aria-label="My profile activity">
+
+        <button class="profile-tab active"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                data-tab="questions">
+          My Questions
+        </button>
+
+        <button class="profile-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-tab="answers">
+          My Answers
+        </button>
+
+        <button class="profile-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-tab="answer-questions">
+          Answer Questions
+        </button>
+
+        <button class="profile-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                data-tab="community">
+          Community
+        </button>
+
       </nav>
 
       <div class="questions-header">
-        <h2 class="section-title" id="activityTitle">My Questions</h2>
-        <span class="question-count" id="questionCount">0 Questions</span>
+
+        <h2 class="section-title" id="activityTitle">
+          My Questions
+        </h2>
+
+        <span class="question-count" id="questionCount">
+          0 Questions
+        </span>
+
       </div>
 
       <div id="questionsList" role="tabpanel"></div>
+
       <div id="communityPanel" class="community-panel" hidden>
+
         <h3>Community</h3>
-        <p>Connect with the AITAM Slack community, join discussions, and share helpful resources.</p>
-        <p>Your community posts and activity will appear here when connected to the community feed.</p>
+
+        <p>
+          Connect with the AITAM Slack community, join discussions,
+          and share helpful resources.
+        </p>
+
+        <p>
+          Your community posts and activity will appear here
+          when connected to the community feed.
+        </p>
+
       </div>
 
     </section>
@@ -1077,45 +1550,92 @@ body {
 
 </main>
 
-<!-- EDIT PROFILE -->
+<!-- EDIT PROFILE MODAL -->
+
 <div class="modal-overlay" id="editModal">
 
-  <div class="modal" role="dialog" aria-modal="true"
+  <div class="modal"
+       role="dialog"
+       aria-modal="true"
        aria-labelledby="editTitle">
 
     <div class="modal-header">
+
       <h2 id="editTitle">Edit Your Profile</h2>
-      <button class="close-btn" id="closeModal" type="button"
-              aria-label="Close">×</button>
+
+      <button class="close-btn"
+              id="closeModal"
+              type="button"
+              aria-label="Close">
+        ×
+      </button>
+
     </div>
 
     <form id="editForm">
+
       <div class="form-grid" id="editFields"></div>
-      <p class="password-note" style="font-size:12px;color:var(--secondary-text);margin:12px 0 0;line-height:1.5;">
-        Leave the password blank to keep your current password. New passwords must be at least 8 characters.
+
+      <p class="password-note"
+         style="font-size:12px;color:var(--secondary-text);margin:12px 0 0;line-height:1.5;">
+
+        Leave the password blank to keep your current password.
+        New passwords must be at least 8 characters.
+
       </p>
 
       <div class="modal-actions">
-        <button class="btn" id="cancelEdit" type="button">Cancel</button>
-        <button class="btn btn-primary" type="submit">Save Changes</button>
+
+        <button class="btn" id="cancelEdit" type="button">
+          Cancel
+        </button>
+
+        <button class="btn btn-primary" type="submit">
+          Save Changes
+        </button>
+
       </div>
+
     </form>
 
   </div>
+
 </div>
 
 <div class="toast" id="toast" role="status"></div>
 
 <script>
+
 const $ = id => document.getElementById(id);
-const defaultProfile = <?= json_encode($defaultProfile, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?>;
-const defaultQuestions = <?= json_encode($defaultQuestions, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?>;
-const csrfToken = <?= json_encode($_SESSION['csrf_token'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+const defaultProfile = <?= json_encode(
+    $defaultProfile,
+    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE
+) ?>;
+
+const defaultQuestions = <?= json_encode(
+    $defaultQuestions,
+    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE
+) ?>;
+
+const availableQuestions = <?= json_encode(
+    $availableQuestions,
+    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE
+) ?>;
+
+const csrfToken = <?= json_encode(
+    $_SESSION['csrf_token'],
+    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+) ?>;
 
 let profile = { ...defaultProfile };
 let questions = defaultQuestions;
 let currentPhoto = profile.profile_image || "";
 let toastTimer;
+
+/* =====================================
+   HELPER FUNCTIONS
+===================================== */
 
 function escapeHTML(value) {
   return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -1130,7 +1650,11 @@ function escapeHTML(value) {
 function safeURL(value) {
   try {
     const url = new URL(value, window.location.href);
-    return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+
+    return ["https:", "http:"].includes(url.protocol)
+      ? url.href
+      : "";
+
   } catch {
     return "";
   }
@@ -1138,6 +1662,7 @@ function safeURL(value) {
 
 function displayName() {
   const name = String(profile.name || "").trim();
+
   return String(profile.role || "").toLowerCase() === "faculty"
     ? name.replace(/^Sri\s+/i, "")
     : name;
@@ -1150,40 +1675,62 @@ function roleLabel(role) {
     faculty: "Faculty",
     alumni: "Alumni"
   };
+
   return labels[String(role || "").toLowerCase()] || "Role not provided";
 }
 
 function initials(name) {
   const initialName = String(name || "").trim().split(/\s+/).slice(0,2);
+
   return initialName
     .map(word => word[0]?.toUpperCase() || "")
     .join("") || "S";
 }
 
+/* =====================================
+   AVATAR
+===================================== */
+
 function renderAvatar() {
+
   const avatar = $("profileAvatar");
+
   avatar.innerHTML = "";
+
   const imageURL = safeURL(currentPhoto);
 
   if (imageURL) {
+
     const image = document.createElement("img");
+
     image.src = imageURL;
     image.alt = "";
+
     image.addEventListener("error", () => {
+
       currentPhoto = "";
       profile.profile_image = "";
+
       renderAvatar();
       syncNavbarProfile();
+
     }, { once: true });
+
     avatar.appendChild(image);
+
   } else {
+
     avatar.textContent = initials(profile.name);
+
   }
 }
 
-
+/* =====================================
+   PROFILE INFORMATION
+===================================== */
 
 function renderInfo() {
+
   const fields = [
     ["Full Name", displayName()],
     ["Email Address", profile.email],
@@ -1193,142 +1740,239 @@ function renderInfo() {
   ];
 
   $("infoGrid").innerHTML = "";
+
   fields.forEach(([label, value]) => {
+
     const item = document.createElement("div");
+
     item.className = "info-item";
+
     item.innerHTML = `
       <span class="info-label">${escapeHTML(label)}</span>
       <div class="info-value">${escapeHTML(value || "Not provided")}</div>
     `;
+
     $("infoGrid").appendChild(item);
+
   });
+
 }
+
+/* =====================================
+   RENDER PROFILE
+===================================== */
 
 function renderProfile() {
+
   $("profileName").textContent = displayName() || "Profile";
-  $("profileSubtitleText").textContent = `B.Tech · ${profile.department || "Department not provided"}`;
+
+  $("profileSubtitleText").textContent =
+    `B.Tech · ${profile.department || "Department not provided"}`;
+
   $("profileRoleBadge").textContent = roleLabel(profile.role);
-  $("profileDepartment").textContent = profile.department || "Department not provided";
+
+  $("profileDepartment").textContent =
+    profile.department || "Department not provided";
+
   $("profileRole").textContent = roleLabel(profile.role);
-  $("profileEmail").textContent = profile.email || "Email not provided";
+
+  $("profileEmail").textContent =
+    profile.email || "Email not provided";
+
   renderAvatar();
   renderInfo();
-  const completed = [profile.name, profile.email, profile.department, profile.role].filter(value => String(value || "").trim()).length;
+
+  const completed = [
+    profile.name,
+    profile.email,
+    profile.department,
+    profile.role
+  ].filter(value => String(value || "").trim()).length;
+
   const percent = Math.round(completed / 4 * 100);
+
   $("completionText").textContent = `${percent}%`;
+
   $("completionFill").style.width = `${percent}%`;
+
   $("copyEmailButton").disabled = !profile.email;
-  $("copyEmailButton").style.opacity = profile.email ? "1" : ".55";
+
+  $("copyEmailButton").style.opacity =
+    profile.email ? "1" : ".55";
+
 }
 
+/* =====================================
+   NAVBAR PROFILE
+===================================== */
+
 function syncNavbarAvatar(photoUrl, fullName) {
+
   const trigger = document.querySelector("#profileMenuBtn");
+
   if (!trigger) return;
 
-  const existingAvatar = trigger.querySelector(".nav-avatar-img, .nav-avatar-fallback");
+  const existingAvatar = trigger.querySelector(
+    ".nav-avatar-img, .nav-avatar-fallback"
+  );
+
   if (existingAvatar) existingAvatar.remove();
 
   const avatarURL = safeURL(photoUrl || "");
+
   if (avatarURL) {
+
     const image = document.createElement("img");
+
     image.className = "nav-avatar-img";
     image.src = avatarURL;
     image.alt = String(fullName || "").trim();
+
     image.onerror = function () {
+
       this.onerror = null;
+
       const fallback = document.createElement("span");
+
       fallback.className = "nav-avatar-fallback";
+
       fallback.setAttribute("aria-hidden", "true");
+
       fallback.textContent = initials(fullName);
+
       this.replaceWith(fallback);
+
     };
+
     trigger.prepend(image);
+
   } else {
+
     const fallback = document.createElement("span");
+
     fallback.className = "nav-avatar-fallback";
+
     fallback.setAttribute("aria-hidden", "true");
+
     fallback.textContent = initials(fullName);
+
     trigger.prepend(fallback);
+
   }
+
 }
 
 function syncNavbarProfile() {
+
   const name = displayName();
-  const avatarURL = safeURL(profile.profile_image || "");
 
   document.querySelectorAll(".nav-profile-wrapper").forEach(wrapper => {
+
     const nameElement = wrapper.querySelector(".nav-user-name");
+
     const roleElement = wrapper.querySelector(".nav-user-role");
-    if (nameElement) nameElement.textContent = name;
-    if (roleElement) roleElement.textContent = roleLabel(profile.role);
+
+    if (nameElement) {
+      nameElement.textContent = name;
+    }
+
+    if (roleElement) {
+      roleElement.textContent = roleLabel(profile.role);
+    }
+
   });
 
   syncNavbarAvatar(profile.profile_image || "", name);
+
 }
 
-
-
-/* QUESTIONS */
+/* =====================================
+   PROFILE ACTIVITY TABS
+===================================== */
 
 let activeActivityTab = "questions";
 
 function setActivityTab(tab) {
+
   activeActivityTab = tab;
+
   document.querySelectorAll(".profile-tab").forEach(button => {
+
     const selected = button.dataset.tab === tab;
+
     button.classList.toggle("active", selected);
+
     button.setAttribute("aria-selected", String(selected));
+
   });
-  $("activityTitle").textContent = tab === "questions" ? "My Questions" : tab === "answers" ? "My Answers" : "Community";
+
+  const titles = {
+    questions: "My Questions",
+    answers: "My Answers",
+    "answer-questions": "Questions You Can Answer",
+    community: "Community"
+  };
+
+  $("activityTitle").textContent =
+    titles[tab] || "My Questions";
+
   $("questionsList").hidden = tab === "community";
+
   $("communityPanel").hidden = tab !== "community";
-  $("questionsList").style.display = tab === "community" ? "none" : "";
+
+  $("questionsList").style.display =
+    tab === "community" ? "none" : "";
+
   renderQuestions();
+
 }
 
-function renderQuestions() {
+/* =====================================
+   RENDER ANSWERABLE QUESTIONS
+===================================== */
+
+function renderAnswerableQuestions() {
+
   const container = $("questionsList");
+
   container.innerHTML = "";
-  const visibleQuestions = questions.filter(question =>
-    activeActivityTab === "answers"
-      ? question.type === "answer"
-      : question.type === "question"
-  );
 
   $("questionCount").textContent =
-    `${visibleQuestions.length} ${visibleQuestions.length === 1 ? (activeActivityTab === "answers" ? "Answer" : "Question") : (activeActivityTab === "answers" ? "Answers" : "Questions")}`;
+    `${availableQuestions.length} ${
+      availableQuestions.length === 1 ? "Question" : "Questions"
+    }`;
 
-  if (!visibleQuestions.length) {
+  if (!availableQuestions.length) {
+
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">?</div>
-        <div>${activeActivityTab === "answers" ? "No answers posted yet." : "No questions posted yet."}</div>
-        <p>${activeActivityTab === "answers" ? "Answers you post on AITAM Slack will appear here." : "Questions you post on AITAM Slack will appear here."}</p>
+
+        <div>No questions available to answer.</div>
+
+        <p>
+          Approved questions from other users will appear here.
+        </p>
       </div>
     `;
+
     return;
   }
 
-  visibleQuestions.forEach(question => {
+  availableQuestions.forEach(question => {
+
     const article = document.createElement("article");
+
     article.className = "question-item";
-    const publicationStatus = String(question.publication_status || "").toUpperCase();
-    const answerStatus = {
-      APPROVED: { label: "Published", className: "published" },
-      PENDING: { label: "Pending review", className: "pending" },
-      REJECTED: { label: "Not published", className: "rejected" }
-    }[publicationStatus] || { label: "Pending review", className: "pending" };
 
     article.innerHTML = `
+
       <div class="activity-meta">
+
         <div class="question-category">
           ${escapeHTML(question.category || "General")}
         </div>
-        ${question.type === "answer" ? `
-          <span class="answer-status answer-status-${answerStatus.className}">
-            ${escapeHTML(answerStatus.label)}
-          </span>
-        ` : ""}
+
       </div>
 
       <h3 class="question-title">
@@ -1339,18 +1983,167 @@ function renderQuestions() {
         ${escapeHTML(question.description)}
       </p>
 
-      ${activeActivityTab === "answers" && question.answer ? `
-        <div class="question-answer">
-          <strong>Answer</strong>
-          ${escapeHTML(question.answer)}
+      <div class="answer-author">
+        Posted by ${escapeHTML(question.author)}
+        ${question.date ? " · " + escapeHTML(question.date) : ""}
+      </div>
+
+      <a
+        class="answer-question-button"
+        href="answer.php?question_id=${encodeURIComponent(question.id)}"
+      >
+        Answer Question
+      </a>
+
+    `;
+
+    container.appendChild(article);
+
+  });
+
+}
+
+/* =====================================
+   RENDER MY QUESTIONS AND ANSWERS
+===================================== */
+
+function renderQuestions() {
+
+  const container = $("questionsList");
+
+  container.innerHTML = "";
+
+  if (activeActivityTab === "answer-questions") {
+
+    renderAnswerableQuestions();
+
+    return;
+  }
+
+  const visibleQuestions = questions.filter(question =>
+
+    activeActivityTab === "answers"
+      ? question.type === "answer"
+      : question.type === "question"
+
+  );
+
+  $("questionCount").textContent =
+    `${visibleQuestions.length} ${
+      visibleQuestions.length === 1
+        ? (activeActivityTab === "answers" ? "Answer" : "Question")
+        : (activeActivityTab === "answers" ? "Answers" : "Questions")
+    }`;
+
+  if (!visibleQuestions.length) {
+
+    container.innerHTML = `
+
+      <div class="empty-state">
+
+        <div class="empty-icon">?</div>
+
+        <div>
+          ${
+            activeActivityTab === "answers"
+              ? "No answers posted yet."
+              : "No questions posted yet."
+          }
         </div>
-      ` : ""}
+
+        <p>
+          ${
+            activeActivityTab === "answers"
+              ? "Answers you post on AITAM Slack will appear here."
+              : "Questions you post on AITAM Slack will appear here."
+          }
+        </p>
+
+      </div>
+
+    `;
+
+    return;
+  }
+
+  visibleQuestions.forEach(question => {
+
+    const article = document.createElement("article");
+
+    article.className = "question-item";
+
+    const publicationStatus =
+      String(question.publication_status || "").toUpperCase();
+
+    const answerStatus = {
+
+      APPROVED: {
+        label: "Published",
+        className: "published"
+      },
+
+      PENDING: {
+        label: "Pending review",
+        className: "pending"
+      },
+
+      REJECTED: {
+        label: "Not published",
+        className: "rejected"
+      }
+
+    }[publicationStatus] || {
+      label: "Pending review",
+      className: "pending"
+    };
+
+    article.innerHTML = `
+
+      <div class="activity-meta">
+
+        <div class="question-category">
+          ${escapeHTML(question.category || "General")}
+        </div>
+
+        ${
+          question.type === "answer"
+            ? `
+              <span class="answer-status answer-status-${answerStatus.className}">
+                ${escapeHTML(answerStatus.label)}
+              </span>
+            `
+            : ""
+        }
+
+      </div>
+
+      <h3 class="question-title">
+        ${escapeHTML(question.title)}
+      </h3>
+
+      <p class="question-description">
+        ${escapeHTML(question.description)}
+      </p>
+
+      ${
+        activeActivityTab === "answers" && question.answer
+          ? `
+            <div class="question-answer">
+              <strong>Answer</strong>
+              ${escapeHTML(question.answer)}
+            </div>
+          `
+          : ""
+      }
 
       <div class="question-stats">
+
         <button class="stat-button like-button"
                 data-id="${escapeHTML(question.id)}"
                 aria-label="Like question">
+
           ♡ <span class="like-count">${question.likes || 0}</span> Likes
+
         </button>
 
         <span>◯ ${question.replies || 0} Replies</span>
@@ -1358,23 +2151,39 @@ function renderQuestions() {
         <span class="question-date">
           ${escapeHTML(question.date || "")}
         </span>
+
       </div>
+
     `;
 
     container.appendChild(article);
+
   });
+
 }
 
-/* PROFILE ACTIVITY TABS */
+/* =====================================
+   TAB CLICK EVENTS
+===================================== */
 
 document.querySelectorAll(".profile-tab").forEach(button => {
-  button.addEventListener("click", () => setActivityTab(button.dataset.tab));
+
+  button.addEventListener("click", () => {
+
+    setActivityTab(button.dataset.tab);
+
+  });
+
 });
 
-/* LIKE QUESTIONS */
+/* =====================================
+   LIKE QUESTIONS
+===================================== */
 
 $("questionsList").addEventListener("click", event => {
+
   const button = event.target.closest(".like-button");
+
   if (!button) return;
 
   const question = questions.find(
@@ -1391,286 +2200,548 @@ $("questionsList").addEventListener("click", event => {
   );
 
   button.querySelector(".like-count").textContent = question.likes;
+
   button.firstChild.textContent = liked ? "♥ " : "♡ ";
+
 });
 
-/* EDIT FORM */
+/* =====================================
+   EDIT PROFILE FORM
+===================================== */
 
 const editableFields = [
+
   ["name", "Full Name", "text", true],
+
   ["email", "Email Address", "email", true],
+
   ["department", "Department / Branch", "select", true],
+
   ["role", "Role", "select", true],
+
   ["password", "New Password (optional)", "password", false]
+
 ];
 
 function renderEditForm() {
+
   const container = $("editFields");
+
   container.innerHTML = "";
 
   editableFields.forEach(([key, label, type, required]) => {
+
     const group = document.createElement("div");
-    group.className = "form-group" +
-      (key === "bio" || key === "address" || key === "skills" ||
-       key === "interests" ? " full" : "");
+
+    group.className = "form-group";
 
     const labelElement = document.createElement("label");
+
     labelElement.htmlFor = "edit-" + key;
+
     labelElement.textContent = label + (required ? " *" : "");
 
     let field;
 
     if (type === "select") {
+
       field = document.createElement("select");
+
       const options = key === "department"
-        ? [["", "Select Department"], ["CSE", "CSE (Computer Science)"], ["CSM", "CSM (AI & Machine Learning)"], ["CSD", "CSD (Data Science)"], ["IT", "Information Technology (IT)"], ["ECE", "ECE"], ["EEE", "EEE"], ["MECH", "Mechanical Engineering"], ["CIVIL", "Civil Engineering"], ["OTHER", "General / Basic Sciences"]]
-        : [["", "Select Role"], ["fresher", "Fresher"], ["student", "Student"], ["faculty", "Faculty"], ["alumni", "Alumni"]];
+
+        ? [
+            ["", "Select Department"],
+            ["CSE", "CSE (Computer Science)"],
+            ["CSM", "CSM (AI & Machine Learning)"],
+            ["CSD", "CSD (Data Science)"],
+            ["IT", "Information Technology (IT)"],
+            ["ECE", "ECE"],
+            ["EEE", "EEE"],
+            ["MECH", "Mechanical Engineering"],
+            ["CIVIL", "Civil Engineering"],
+            ["OTHER", "General / Basic Sciences"]
+          ]
+
+        : [
+            ["", "Select Role"],
+            ["fresher", "Fresher"],
+            ["student", "Student"],
+            ["faculty", "Faculty"],
+            ["alumni", "Alumni"]
+          ];
+
       options.forEach(([value, label]) => {
+
         const option = document.createElement("option");
+
         option.value = value;
+
         option.textContent = label;
+
         field.appendChild(option);
+
       });
+
     } else {
+
       field = document.createElement("input");
+
       field.type = type;
+
     }
 
     field.id = "edit-" + key;
+
     field.name = key;
 
-    if (required) field.required = true;
-
-    if (key === "password") {
-      field.autocomplete = "new-password";
-      field.placeholder = "Enter a new password (optional)";
-      field.minLength = 8;
+    if (required) {
+      field.required = true;
     }
 
-    if (key === "bio") field.maxLength = 350;
+    if (key === "password") {
+
+      field.autocomplete = "new-password";
+
+      field.placeholder = "Enter a new password (optional)";
+
+      field.minLength = 8;
+
+    }
 
     group.append(labelElement, field);
+
     container.appendChild(group);
+
   });
+
 }
 
 function openEditModal() {
+
   renderEditForm();
 
   editableFields.forEach(([key]) => {
+
     const field = $("edit-" + key);
 
-    // Never prefill or persist a password in browser storage.
-    field.value = key === "password" ? "" : (profile[key] || "");
+    field.value =
+      key === "password" ? "" : (profile[key] || "");
+
   });
 
   $("editModal").classList.add("show");
+
   $("edit-name").focus();
+
 }
 
 function closeEditModal() {
+
   $("editModal").classList.remove("show");
+
 }
 
 $("editButton").addEventListener("click", openEditModal);
+
 $("closeModal").addEventListener("click", closeEditModal);
+
 $("cancelEdit").addEventListener("click", closeEditModal);
 
 $("editModal").addEventListener("click", event => {
-  if (event.target === $("editModal")) closeEditModal();
+
+  if (event.target === $("editModal")) {
+    closeEditModal();
+  }
+
 });
 
+/* =====================================
+   SAVE PROFILE
+===================================== */
+
 $("editForm").addEventListener("submit", async event => {
+
   event.preventDefault();
 
   const updates = {};
+
   editableFields.forEach(([key]) => {
+
     const value = $("edit-" + key).value.trim();
+
     if (key === "password") {
-      if (value) updates.password = value;
+
+      if (value) {
+        updates.password = value;
+      }
+
       return;
     }
+
     updates[key] = value;
+
   });
 
   try {
+
     const response = await fetch("auth/update_profile.php", {
+
       method: "POST",
+
       headers: {
         "Content-Type": "application/json",
         "X-CSRF-Token": csrfToken
       },
+
       body: JSON.stringify(updates)
+
     });
+
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      throw new Error(result.message || "Unable to update your profile.");
+
+      throw new Error(
+        result.message || "Unable to update your profile."
+      );
+
     }
 
-    profile = { ...profile, ...result.profile };
+    profile = {
+      ...profile,
+      ...result.profile
+    };
+
     $("edit-password").value = "";
+
     renderProfile();
+
     syncNavbarProfile();
+
     closeEditModal();
+
     showToast(result.message || "Changes saved successfully!");
+
   } catch (error) {
-    showToast(error instanceof Error ? error.message : "Unable to update your profile.", "error");
+
+    showToast(
+      error instanceof Error
+        ? error.message
+        : "Unable to update your profile.",
+      "error"
+    );
+
   }
+
 });
 
-/* PROFILE QUICK ACTIONS */
+/* =====================================
+   PROFILE QUICK ACTIONS
+===================================== */
+
 $("copyEmailButton").addEventListener("click", async () => {
-  if (!profile.email) return showToast("Add your email in Edit Profile first.");
-  try {
-    await navigator.clipboard.writeText(profile.email);
-    showToast("Email copied to clipboard!");
-  } catch {
-    showToast("Copy is unavailable in this browser. Select the email from Student Information.");
+
+  if (!profile.email) {
+    return showToast("Add your email in Edit Profile first.");
   }
+
+  try {
+
+    await navigator.clipboard.writeText(profile.email);
+
+    showToast("Email copied to clipboard!");
+
+  } catch {
+
+    showToast(
+      "Copy is unavailable in this browser. Select the email from Student Information."
+    );
+
+  }
+
 });
 
 $("viewQuestionsButton").addEventListener("click", () => {
+
   setActivityTab("questions");
-  document.querySelector(".profile-tabs").scrollIntoView({ behavior: "smooth", block: "center" });
+
+  document.querySelector(".profile-tabs").scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
 });
 
-/* PHOTO UPLOAD */
+/* =====================================
+   PHOTO UPLOAD
+===================================== */
 
 const photoButton = $("photoButton");
+
 const photoMenu = $("photoMenu");
 
 function closePhotoMenu() {
+
   photoMenu.hidden = true;
+
   photoButton.setAttribute("aria-expanded", "false");
+
 }
 
 photoButton.setAttribute("aria-haspopup", "menu");
+
 photoButton.setAttribute("aria-expanded", "false");
+
 photoButton.addEventListener("click", event => {
+
   event.stopPropagation();
+
   if (!safeURL(currentPhoto)) {
+
     closePhotoMenu();
+
     $("photoInput").click();
+
     return;
+
   }
 
   const willOpen = photoMenu.hidden;
+
   photoMenu.hidden = !willOpen;
+
   photoButton.setAttribute("aria-expanded", String(willOpen));
+
 });
 
 $("updatePhotoButton").addEventListener("click", event => {
+
   event.stopPropagation();
+
   closePhotoMenu();
+
   $("photoInput").click();
+
 });
 
+/* =====================================
+   REMOVE PROFILE PHOTO
+===================================== */
+
 $("removePhotoButton").addEventListener("click", async event => {
+
   event.stopPropagation();
+
   closePhotoMenu();
 
   const formData = new FormData();
+
   formData.append("action", "remove");
 
   try {
+
     const response = await fetch("auth/upload_avatar.php", {
+
       method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
+
+      headers: {
+        "X-CSRF-Token": csrfToken
+      },
+
       body: formData
+
     });
+
     const result = await response.json();
+
     if (!response.ok || !result.success) {
-      throw new Error(result.message || "Unable to remove your profile picture.");
+
+      throw new Error(
+        result.message || "Unable to remove your profile picture."
+      );
+
     }
 
     profile.profile_image = "";
+
     currentPhoto = "";
+
     renderAvatar();
+
     syncNavbarProfile();
+
     showToast("Profile picture removed!");
+
   } catch (error) {
-    showToast(error instanceof Error ? error.message : "Unable to remove your profile picture.", "error");
+
+    showToast(
+      error instanceof Error
+        ? error.message
+        : "Unable to remove your profile picture.",
+      "error"
+    );
+
   }
+
 });
 
+/* =====================================
+   PHOTO MENU EVENTS
+===================================== */
+
 document.addEventListener("click", event => {
-  if (!photoMenu.hidden && !photoMenu.contains(event.target) && event.target !== photoButton) {
+
+  if (
+    !photoMenu.hidden &&
+    !photoMenu.contains(event.target) &&
+    event.target !== photoButton
+  ) {
+
     closePhotoMenu();
+
   }
+
 });
 
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape") closePhotoMenu();
+
+  if (event.key === "Escape") {
+    closePhotoMenu();
+  }
+
 });
 
+/* =====================================
+   UPLOAD PROFILE PHOTO
+===================================== */
+
 $("photoInput").addEventListener("change", async event => {
+
   const file = event.target.files[0];
 
   if (!file) return;
 
   if (file.size > 3 * 1024 * 1024) {
+
     showToast("Choose an image no larger than 3 MB.", "error");
+
     return;
+
   }
 
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+  const allowedTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp"
+  ];
+
   if (file.type && !allowedTypes.includes(file.type)) {
+
     showToast("Choose a JPEG, PNG, or WebP image.", "error");
+
     return;
+
   }
 
   const formData = new FormData();
+
   formData.append("avatar", file);
 
   try {
+
     const response = await fetch("auth/upload_avatar.php", {
+
       method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
+
+      headers: {
+        "X-CSRF-Token": csrfToken
+      },
+
       body: formData
+
     });
+
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      throw new Error(result.message || "Unable to upload your profile picture.");
+
+      throw new Error(
+        result.message || "Unable to upload your profile picture."
+      );
+
     }
 
     profile.profile_image = result.profile_image;
+
     currentPhoto = result.profile_image;
+
     renderAvatar();
+
     syncNavbarProfile();
+
     showToast("Profile picture updated!");
+
   } catch (error) {
-    showToast(error instanceof Error ? error.message : "Unable to upload your profile picture.", "error");
+
+    showToast(
+      error instanceof Error
+        ? error.message
+        : "Unable to upload your profile picture.",
+      "error"
+    );
+
   } finally {
+
     event.target.value = "";
+
   }
+
 });
 
-/* TOAST */
+/* =====================================
+   TOAST
+===================================== */
 
 function showToast(message, type = "success") {
+
   const toast = $("toast");
 
   toast.textContent = message;
+
   toast.classList.add("show");
+
   toast.classList.toggle("error", type === "error");
 
   clearTimeout(toastTimer);
 
   toastTimer = setTimeout(() => {
+
     toast.classList.remove("show");
+
   }, 2800);
+
 }
 
+/* =====================================
+   KEYBOARD EVENTS
+===================================== */
+
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape") closeEditModal();
+
+  if (event.key === "Escape") {
+    closeEditModal();
+  }
+
 });
 
-/* INITIALIZE */
+/* =====================================
+   INITIALIZE PROFILE
+===================================== */
 
 renderProfile();
+
 renderQuestions();
+
 </script>
 
 <?php include __DIR__ . '/footer.php'; ?>

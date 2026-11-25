@@ -85,7 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ['options' => ['min_range' => 1]]
     );
 
-    $action = $_POST['action'] ?? '';
+    $action = is_string($_POST['action'] ?? null)
+        ? $_POST['action']
+        : '';
 
     $csrfValue = is_string($_POST['csrf_token'] ?? null)
         ? $_POST['csrf_token']
@@ -110,6 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? 'Published'
             : 'Hidden';
 
+        $publicationStatus = $answerStatus === 'Published'
+            ? 'APPROVED'
+            : 'REJECTED';
+
         try {
 
             $pdo->beginTransaction();
@@ -117,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             /* FETCH ANSWER */
 
             $lookup = $pdo->prepare(
-                'SELECT question_id
+                'SELECT question_id, status
                  FROM answers
                  WHERE id = :id
                  FOR UPDATE'
@@ -162,19 +168,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $questionUpdate->execute([
                     ':question_id' => $questionId
                 ]);
+
+            } else {
+
+                /*
+                 * Return the question to Pending only when
+                 * no other published answers exist.
+                 *
+                 * Closed questions remain Closed.
+                 */
+
+                $questionUpdate = $pdo->prepare(
+                    "UPDATE questions
+                     SET status = 'Pending'
+                     WHERE id = :question_id
+                       AND status = 'Answered'
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM answers
+                           WHERE question_id = :question_id
+                             AND status = 'Published'
+                       )"
+                );
+
+                $questionUpdate->execute([
+                    ':question_id' => $questionId
+                ]);
             }
 
             /* RECORD ADMIN MODERATION EVENT */
+
+            $adminId = filter_var(
+                $_SESSION['admin_id'] ?? null,
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1]]
+            );
 
             recordModerationEvent(
                 $pdo,
                 'answer',
                 (int)$answerId,
                 'ADMIN',
-                $answerStatus,
+                $publicationStatus,
                 [],
-                (int)($_SESSION['admin_id'] ?? 0),
-                $answerStatus
+                $adminId !== false ? (int)$adminId : null,
+                $publicationStatus
             );
 
             $pdo->commit();
@@ -335,12 +373,18 @@ $sql = "
         author.role AS author_role,
 
         ai.ai_decision,
+        ai.publication_status AS ai_publication_status,
         ai.ai_reason,
         ai.ai_confidence,
         ai.relevance_score,
         ai.detected_violations,
         ai.model AS ai_model,
-        ai.api_status
+        ai.api_status,
+
+        admin_review.admin_decision,
+        admin_review.publication_status AS admin_publication_status,
+        admin_review.admin_reviewed_at,
+        admin_review.admin_reviewer_id
 
     FROM answers a
 
@@ -357,6 +401,15 @@ $sql = "
             WHERE me.content_type = 'answer'
               AND me.content_id = a.id
               AND me.event_type = 'AI'
+        )
+
+    LEFT JOIN moderation_events admin_review
+        ON admin_review.id = (
+            SELECT MAX(me.id)
+            FROM moderation_events me
+            WHERE me.content_type = 'answer'
+              AND me.content_id = a.id
+              AND me.event_type = 'ADMIN'
         )
 
     $whereSql
@@ -382,19 +435,16 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <title>AITAM Slack | Answer Management</title>
 
-    <!-- Bootstrap CSS -->
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
         rel="stylesheet"
     >
 
-    <!-- Bootstrap Icons -->
     <link
         rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
     >
 
-    <!-- Project CSS -->
     <link rel="stylesheet" href="../assets/css/root.css">
     <link rel="stylesheet" href="../assets/css/admin.css">
     <link rel="stylesheet" href="../assets/css/answers.css">
@@ -410,8 +460,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <?php include 'includes/topbar.php'; ?>
 
         <main class="page-content answers-page">
-
-            <!-- PAGE HEADING -->
 
             <div class="page-heading">
 
@@ -542,8 +590,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     </div>
 
-                    <!-- CATEGORY FILTER -->
-
                     <select name="category">
 
                         <option value="">All Categories</option>
@@ -560,8 +606,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <?php endforeach; ?>
 
                     </select>
-
-                    <!-- STATUS FILTER -->
 
                     <select name="status">
 
@@ -624,13 +668,9 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                     <tr>
 
-                                        <!-- ANSWER ID -->
-
                                         <td>
                                             #<?= e($answer['id']) ?>
                                         </td>
-
-                                        <!-- ANSWER CONTENT -->
 
                                         <td class="answer-content">
 
@@ -643,6 +683,11 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                 <p>
                                                     Decision:
                                                     <?= e($answer['ai_decision'] ?? 'Not available') ?>
+                                                </p>
+
+                                                <p>
+                                                    AI Publication:
+                                                    <?= e($answer['ai_publication_status'] ?? 'Not available') ?>
                                                 </p>
 
                                                 <p>
@@ -696,9 +741,37 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                             </details>
 
-                                        </td>
+                                            <?php if (!empty($answer['admin_decision'])): ?>
 
-                                        <!-- QUESTION -->
+                                                <details>
+
+                                                    <summary>Admin review details</summary>
+
+                                                    <p>
+                                                        Decision:
+                                                        <?= e($answer['admin_decision']) ?>
+                                                    </p>
+
+                                                    <p>
+                                                        Publication:
+                                                        <?= e($answer['admin_publication_status'] ?? '') ?>
+                                                    </p>
+
+                                                    <p>
+                                                        Reviewer ID:
+                                                        <?= e($answer['admin_reviewer_id'] ?? '') ?>
+                                                    </p>
+
+                                                    <p>
+                                                        Reviewed:
+                                                        <?= e($answer['admin_reviewed_at'] ?? '') ?>
+                                                    </p>
+
+                                                </details>
+
+                                            <?php endif; ?>
+
+                                        </td>
 
                                         <td>
 
@@ -730,8 +803,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                         </td>
 
-                                        <!-- AUTHOR -->
-
                                         <td>
 
                                             <?= e(
@@ -755,8 +826,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                         </td>
 
-                                        <!-- STATUS -->
-
                                         <td>
 
                                             <span class="status-badge <?= e(strtolower($answer['status'])) ?>">
@@ -766,8 +835,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                             </span>
 
                                         </td>
-
-                                        <!-- SUBMITTED DATE -->
 
                                         <td>
 
@@ -787,8 +854,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                             <?php endif; ?>
 
                                         </td>
-
-                                        <!-- MANAGE -->
 
                                         <td>
 
@@ -869,8 +934,6 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </main>
 
     </div>
-
-    <!-- JAVASCRIPT -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 

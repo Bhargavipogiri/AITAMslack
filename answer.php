@@ -1,3 +1,4 @@
+
 <?php
 
 require_once __DIR__ . '/includes/bootstrap.php';
@@ -5,12 +6,14 @@ require_once __DIR__ . '/includes/ai_helpers.php';
 require_once __DIR__ . '/lesder-db.php';
 
 $databaseError = '';
+
 $currentUserId = filter_var(
     $_SESSION['user_id'] ?? null,
     FILTER_VALIDATE_INT,
     ['options' => ['min_range' => 1]]
 );
-$canAnswer = $currentUserId !== false;
+
+$canAnswer = $currentUserId !== false && $currentUserId !== null;
 
 /* =====================================
    SUBMIT ANSWER
@@ -40,20 +43,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
 
+        /*
+         * Check that the question is approved
+         * and retrieve its owner's user ID.
+         */
+
         $check = $conn->prepare(
-            "SELECT id, question_title, question_description, category
+            "SELECT
+                id,
+                user_id,
+                question_title,
+                question_description,
+                category
              FROM questions
              WHERE id = :id
-               AND publication_status = 'APPROVED'"
+               AND publication_status = 'APPROVED'
+             LIMIT 1"
         );
 
         $check->execute(['id' => $questionId]);
+
         $question = $check->fetch(PDO::FETCH_ASSOC);
 
         if (!$question) {
             header("Location: answer.php?question_id=" . $questionId . "&error=notfound");
             exit();
         }
+
+        /*
+         * PREVENT USERS FROM ANSWERING
+         * THEIR OWN QUESTIONS.
+         */
+
+        if ((int)$question['user_id'] === (int)$currentUserId) {
+            header("Location: answer.php?error=ownquestion");
+            exit();
+        }
+
+        /*
+         * Validate submission token.
+         */
 
         if (!consumeModerationSubmissionToken(
             'answer',
@@ -64,6 +93,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
+        /*
+         * Validate answer length.
+         */
+
         $answerLength = function_exists('mb_strlen')
             ? mb_strlen($answerText, 'UTF-8')
             : strlen($answerText);
@@ -73,15 +106,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
+        /*
+         * Check for duplicate answers.
+         */
+
         $duplicateCheck = findPotentialDuplicateAnswers(
             $conn,
             (int)$questionId,
             $answerText
         );
+
         $possibleDuplicates = !empty($duplicateCheck['ok'])
             && is_array($duplicateCheck['matches'] ?? null)
             ? $duplicateCheck['matches']
             : [];
+
+        /*
+         * AI MODERATION
+         */
 
         $moderation = groqRateLimitAllowed((int)$currentUserId, 'answer')
             ? moderateAnswer(
@@ -93,14 +135,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             )
             : groqModerationFailure('answer', 'rate_limited');
 
-        $conn->beginTransaction();
-
         $publicationStatus = moderationPublicationStatus($moderation);
 
+        /*
+         * IMPORTANT:
+         * answers table uses:
+         * Published, Pending, Hidden
+         *
+         * moderation_events uses:
+         * APPROVED, PENDING, REJECTED
+         */
+
+        $answerStatus = $publicationStatus === 'APPROVED'
+            ? 'Published'
+            : 'Pending';
+
+        $conn->beginTransaction();
+
+        /*
+         * INSERT ANSWER
+         *
+         * Use the actual answers.status column.
+         * Do not use answers.publication_status.
+         */
+
         $sql = "INSERT INTO answers
-                (question_id, user_id, answer_text, publication_status)
+                (
+                    question_id,
+                    user_id,
+                    answer_text,
+                    status
+                )
                 VALUES
-                (:question_id, :user_id, :answer_text, :publication_status)";
+                (
+                    :question_id,
+                    :user_id,
+                    :answer_text,
+                    :status
+                )";
 
         $stmt = $conn->prepare($sql);
 
@@ -108,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'question_id' => $questionId,
             'user_id' => $currentUserId,
             'answer_text' => $answerText,
-            'publication_status' => $publicationStatus
+            'status' => $answerStatus
         ]);
 
         $answerId = (int)$conn->lastInsertId();
@@ -116,6 +188,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($answerId < 1) {
             throw new RuntimeException('Answer insert did not complete.');
         }
+
+        /*
+         * RECORD AI MODERATION HISTORY
+         *
+         * Keep the uppercase publication status
+         * for moderation_events.
+         */
 
         recordModerationEvent(
             $conn,
@@ -126,7 +205,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $moderation
         );
 
+        /*
+         * Update question status only
+         * when the answer is published.
+         */
+
         if ($publicationStatus === 'APPROVED') {
+
             $updateQuestion = $conn->prepare(
                 "UPDATE questions
                  SET status = 'Answered'
@@ -134,7 +219,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    AND publication_status = 'APPROVED'
                    AND status = 'Pending'"
             );
-            $updateQuestion->execute(['id' => $questionId]);
+
+            $updateQuestion->execute([
+                'id' => $questionId
+            ]);
         }
 
         $conn->commit();
@@ -145,6 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "&success=" .
             ($publicationStatus === 'APPROVED' ? 'approved' : 'pending')
         );
+
         exit();
 
     } catch (Throwable $ex) {
@@ -178,38 +267,108 @@ try {
         FILTER_VALIDATE_INT
     );
 
-    if ($selectedQuestionId) {
+    /*
+     * If a specific question is selected,
+     * fetch it only if it is approved
+     * and does not belong to the logged-in user.
+     */
 
-        $sql = "SELECT
-                    id,
-                    question_title,
-                    question_description,
-                    category,
-                    created_at
-                FROM questions
-                WHERE id = :id
-                  AND publication_status = 'APPROVED'";
+    if ($selectedQuestionId !== false && $selectedQuestionId !== null) {
 
-        $stmt = $conn->prepare($sql);
-        $stmt->execute(['id' => $selectedQuestionId]);
+        if ($canAnswer) {
+
+            $sql = "SELECT
+                        id,
+                        user_id,
+                        question_title,
+                        question_description,
+                        category,
+                        created_at
+                    FROM questions
+                    WHERE id = :id
+                      AND publication_status = 'APPROVED'
+                      AND user_id <> :user_id";
+
+            $stmt = $conn->prepare($sql);
+
+            $stmt->execute([
+                'id' => $selectedQuestionId,
+                'user_id' => $currentUserId
+            ]);
+
+        } else {
+
+            $sql = "SELECT
+                        id,
+                        user_id,
+                        question_title,
+                        question_description,
+                        category,
+                        created_at
+                    FROM questions
+                    WHERE id = :id
+                      AND publication_status = 'APPROVED'";
+
+            $stmt = $conn->prepare($sql);
+
+            $stmt->execute([
+                'id' => $selectedQuestionId
+            ]);
+        }
 
     } else {
 
-        $sql = "SELECT
-                    id,
-                    question_title,
-                    question_description,
-                    category,
-                    created_at
-                FROM questions
-                WHERE publication_status = 'APPROVED'
-                ORDER BY created_at DESC";
+        /*
+         * Fetch all approved questions
+         * except the logged-in user's questions.
+         */
 
-        $stmt = $conn->prepare($sql);
-        $stmt->execute();
+        if ($canAnswer) {
+
+            $sql = "SELECT
+                        id,
+                        user_id,
+                        question_title,
+                        question_description,
+                        category,
+                        created_at
+                    FROM questions
+                    WHERE publication_status = 'APPROVED'
+                      AND user_id <> :user_id
+                    ORDER BY created_at DESC";
+
+            $stmt = $conn->prepare($sql);
+
+            $stmt->execute([
+                'user_id' => $currentUserId
+            ]);
+
+        } else {
+
+            $sql = "SELECT
+                        id,
+                        user_id,
+                        question_title,
+                        question_description,
+                        category,
+                        created_at
+                    FROM questions
+                    WHERE publication_status = 'APPROVED'
+                    ORDER BY created_at DESC";
+
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+        }
     }
 
     $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    /*
+     * FETCH ONLY PUBLISHED ANSWERS.
+     *
+     * The answers table uses status,
+     * not publication_status.
+     */
 
     $answerQuery = $conn->prepare(
         "SELECT
@@ -223,7 +382,7 @@ try {
          LEFT JOIN students s ON s.id = a.user_id
          LEFT JOIN users u ON u.user_id = a.user_id
          WHERE a.question_id = :question_id
-           AND a.publication_status = 'APPROVED'
+           AND a.status = 'Published'
          ORDER BY a.created_at ASC, a.id ASC"
     );
 
@@ -234,6 +393,7 @@ try {
     $databaseError = 'Unable to load questions and answers.';
     $answerQuery = null;
 }
+
 ?>
 
 
@@ -249,7 +409,6 @@ try {
 
     <title>Answers | AITAM Slack</title>
 
-    <!-- Global Root CSS -->
     <link rel="stylesheet" href="./assets/css/root.css">
 
     <style>
@@ -697,11 +856,17 @@ body[data-theme="dark"] .question-card {
     <?php if (isset($_GET['success'])): ?>
 
         <div class="message <?= $_GET['success'] === 'approved' ? 'success' : 'review' ?>" role="status">
-        <?php if ($_GET['success'] === 'approved'): ?>
-            Your answer has been published successfully!
-        <?php else: ?>
-            Your answer could not be automatically approved because it may be incorrect, irrelevant, or inappropriate. It has been forwarded to the administrator for review.
-        <?php endif; ?>
+
+            <?php if ($_GET['success'] === 'approved'): ?>
+
+                Your answer has been published successfully!
+
+            <?php else: ?>
+
+                Your answer could not be automatically approved because it may be incorrect, irrelevant, or inappropriate. It has been forwarded to the administrator for review.
+
+            <?php endif; ?>
+
         </div>
 
     <?php endif; ?>
@@ -720,7 +885,11 @@ body[data-theme="dark"] .question-card {
 
             } elseif ($_GET['error'] === 'notfound') {
 
-                echo 'The selected question was not found.';
+                echo 'The selected question was not found or is not available for answering.';
+
+            } elseif ($_GET['error'] === 'ownquestion') {
+
+                echo 'You cannot answer a question that you posted yourself.';
 
             } else {
 
@@ -925,3 +1094,4 @@ body[data-theme="dark"] .question-card {
 
 </body>
 </html>
+++5

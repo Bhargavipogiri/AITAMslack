@@ -84,6 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt = $conn->prepare($sql);
 
+            $conn->beginTransaction();
+
             $stmt->execute([
                 ':user_id' => $userId,
                 ':report_type' => $report_type,
@@ -91,6 +93,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':description' => $description,
                 ':priority' => $priority
             ]);
+
+            // Get the newly submitted report ID
+            $reportId = (int)$conn->lastInsertId();
+
+            // Create an admin notification
+            $notificationSql = "
+                INSERT INTO admin_notifications (report_id)
+                VALUES (:report_id)
+            ";
+
+            $notificationStmt = $conn->prepare($notificationSql);
+
+            $notificationStmt->execute([
+                ':report_id' => $reportId
+            ]);
+
+            // Save both operations together
+            $conn->commit();
 
             $success = 'Your report has been submitted successfully.';
 
@@ -108,6 +128,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log('Report submission error: ' . $ex->getMessage());
 
             $error = 'Unable to submit your report. Please try again later.';
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+
 function groqEnvValue(string $name): ?string
 {
     $allowedNames = [
@@ -17,44 +18,47 @@ function groqEnvValue(string $name): ?string
         ? ['GROQ_API_KEY', 'OPENAI_API_KEY']
         : [$name];
 
-    $runtimeValue = null;
-
+    // 1. Check PHP environment variables.
     foreach ($aliases as $alias) {
-        $candidate = getenv($alias);
+        $value = getenv($alias);
 
-        if (is_string($candidate) && trim($candidate) !== '') {
-            $runtimeValue = trim($candidate);
-            break;
+        if (!is_string($value) || trim($value) === '') {
+            continue;
         }
-    }
 
-    if (is_string($runtimeValue) && trim($runtimeValue) !== '') {
+        $value = trim($value);
+
         if (
             $name === 'GROQ_API_KEY' &&
-            !str_starts_with(trim($runtimeValue), 'gsk_')
+            !preg_match('/^gsk_[A-Za-z0-9_-]+$/', $value)
         ) {
-            return null;
+            error_log('Groq API key has an invalid format in environment variables.');
+            continue;
         }
 
-        return trim($runtimeValue);
+        return $value;
     }
 
+    // 2. Load project .env file.
     static $projectValues = null;
 
     if ($projectValues === null) {
         $projectValues = [];
+
         $envPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . '.env';
 
-        if (is_file($envPath)) {
+        if (!is_file($envPath) || !is_readable($envPath)) {
+            error_log('Groq configuration: project .env file is missing or unreadable.');
+        } else {
             $lines = file($envPath, FILE_IGNORE_NEW_LINES);
 
             if ($lines === false) {
-                error_log('Unable to read project .env settings for Groq.');
+                error_log('Groq configuration: unable to read .env file.');
             } else {
                 foreach ($lines as $line) {
                     $line = trim($line);
 
-                    if ($line === '' || $line[0] === '#') {
+                    if ($line === '' || str_starts_with($line, '#')) {
                         continue;
                     }
 
@@ -76,6 +80,7 @@ function groqEnvValue(string $name): ?string
 
                     $value = trim(substr($line, $separator + 1));
 
+                    // Remove matching surrounding quotes.
                     if (
                         strlen($value) >= 2 &&
                         (
@@ -86,29 +91,39 @@ function groqEnvValue(string $name): ?string
                         $value = substr($value, 1, -1);
                     }
 
-                    $projectValues[$key] = $value;
+                    // Remove UTF-8 BOM if present.
+                    $value = preg_replace('/^\xEF\xBB\xBF/', '', $value);
+
+                    $projectValues[$key] = trim((string)$value);
                 }
             }
         }
     }
 
-    $value = null;
-
+    // 3. Find the requested value.
     foreach ($aliases as $alias) {
-        if (is_string($projectValues[$alias] ?? null) && trim($projectValues[$alias]) !== '') {
-            $value = trim($projectValues[$alias]);
-            break;
+        $value = $projectValues[$alias] ?? null;
+
+        if (!is_string($value) || trim($value) === '') {
+            continue;
         }
+
+        $value = trim($value);
+
+        if (
+            $name === 'GROQ_API_KEY' &&
+            !preg_match('/^gsk_[A-Za-z0-9_-]+$/', $value)
+        ) {
+            error_log('Groq API key has an invalid format in the project .env file.');
+            continue;
+        }
+
+        return $value;
     }
 
-    return is_string($value) && trim($value) !== ''
-        ? (
-            $name === 'GROQ_API_KEY' && !str_starts_with(trim($value), 'gsk_')
-                ? null
-                : trim($value)
-        )
-        : null;
+    return null;
 }
+
 
 function groqModerationModel(): string
 {
@@ -539,25 +554,31 @@ function answerViolationsConsistent(array $moderation): bool
     return true;
 }
 
+
 function finalModerationDecision(string $contentType, array $moderation): string
 {
     if ($contentType === 'question') {
-        $checksPassed = moderationSafetyPassed($moderation)
+        $checksPassed =
+            moderationSafetyPassed($moderation)
             && questionRelevancePassed($moderation)
             && questionQualityPassed($moderation);
-    } elseif ($contentType === 'answer') {
-        $checksPassed = answerSafetyPassed($moderation)
+
+        return $checksPassed ? 'APPROVED' : 'REVIEW';
+    }
+
+    if ($contentType === 'answer') {
+        $checksPassed =
+            answerSafetyPassed($moderation)
             && answerRelevancePassed($moderation)
             && answerQualityPassed($moderation)
             && answerViolationsConsistent($moderation);
-    } else {
-        return 'REVIEW';
+
+        return $checksPassed ? 'APPROVED' : 'REVIEW';
     }
 
-    return $checksPassed && ($moderation['decision'] ?? null) === 'APPROVED'
-        ? 'APPROVED'
-        : 'REVIEW';
+    return 'REVIEW';
 }
+
 
 function validateModerationResponse(mixed $response, string $contentType): array
 {
@@ -1066,16 +1087,20 @@ function findPotentialDuplicateAnswers(
             "SELECT id, answer_text
              FROM answers
              WHERE question_id = :question_id
-               AND publication_status IN ('PENDING', 'APPROVED')
+               AND status IN ('Published', 'Pending')
              ORDER BY created_at DESC, id DESC
              LIMIT 100"
         );
-        $statement->execute([':question_id' => $questionId]);
+
+        $statement->execute([
+            ':question_id' => $questionId
+        ]);
 
         $matches = [];
 
         foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $existingAnswer) {
             $existingText = (string)$existingAnswer['answer_text'];
+
             $similarity = moderationTokenSimilarity(
                 substr($answer, 0, 2000),
                 substr($existingText, 0, 2000)
@@ -1092,15 +1117,27 @@ function findPotentialDuplicateAnswers(
 
         usort(
             $matches,
-            static fn($left, $right) => $right['similarity'] <=> $left['similarity']
+            static fn($left, $right) =>
+                $right['similarity'] <=> $left['similarity']
         );
 
-        return ['ok' => true, 'matches' => array_slice($matches, 0, 5)];
+        return [
+            'ok' => true,
+            'matches' => array_slice($matches, 0, 5)
+        ];
+
     } catch (PDOException $exception) {
-        error_log('Answer duplicate lookup failed: ' . $exception->getCode());
-        return ['ok' => false, 'matches' => []];
+        error_log(
+            'Answer duplicate lookup failed: ' . $exception->getCode()
+        );
+
+        return [
+            'ok' => false,
+            'matches' => []
+        ];
     }
 }
+
 
 function recordModerationEvent(
     PDO $pdo,
