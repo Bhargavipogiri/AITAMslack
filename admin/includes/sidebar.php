@@ -27,9 +27,20 @@ $mainMenu = [
         'link' => '/AITAMslack/admin/answers.php'
     ],
     [
+<<<<<<< HEAD
     'title' => 'Reports Management',
     'icon' => 'bi-flag',
     'link' => '/AITAMslack/admin/reports.php'
+=======
+        'title' => 'Verified College Facts',
+        'icon' => 'bi-journal-check',
+        'link' => '/AITAMslack/admin/verified-facts.php'
+    ],
+    [
+        'title' => 'Moderation History',
+        'icon' => 'bi-shield-check',
+        'link' => '/AITAMslack/admin/moderation-history.php'
+>>>>>>> 64e62b774cc80e4e2d0be33e0f90b0e23cf096ff
     ],
     [
         'title' => 'Reported Questions',

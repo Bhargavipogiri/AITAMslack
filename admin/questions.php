@@ -253,8 +253,15 @@ $sql = "
         ai.category AS ai_category,
         ai.detected_violations,
         ai.model AS ai_model,
+<<<<<<< HEAD
         ai.api_status
 
+=======
+        ai.api_status,
+        validation.result_code AS validation_result,
+        validation.reason AS validation_reason,
+        validation.category AS validation_category
+>>>>>>> 64e62b774cc80e4e2d0be33e0f90b0e23cf096ff
     FROM questions q
 
     LEFT JOIN users author
@@ -270,7 +277,17 @@ $sql = "
               AND me.content_id = q.id
               AND me.event_type = 'AI'
         )
+<<<<<<< HEAD
 
+=======
+    LEFT JOIN qa_validation_results validation
+        ON validation.id = (
+            SELECT MAX(qvr.id)
+            FROM qa_validation_results qvr
+            WHERE qvr.content_type = 'question'
+              AND qvr.content_id = q.id
+        )
+>>>>>>> 64e62b774cc80e4e2d0be33e0f90b0e23cf096ff
     $whereSql
 
     ORDER BY q.id DESC
@@ -610,7 +627,18 @@ $hiddenQuestions = (int)($stats['hidden_questions'] ?? 0);
                                         </details>
 
                                     <?php endif; ?>
+<<<<<<< HEAD
 
+=======
+                                    <?php if (!empty($question['validation_result'])): ?>
+                                        <div class="small mt-2">
+                                            Validation:
+                                            <?= e($question['validation_result']) ?>
+                                            · <?= e($question['validation_category']) ?>
+                                            <div><?= e($question['validation_reason']) ?></div>
+                                        </div>
+                                    <?php endif; ?>
+>>>>>>> 64e62b774cc80e4e2d0be33e0f90b0e23cf096ff
                                 </td>
 
                                 <td>

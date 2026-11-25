@@ -38,6 +38,10 @@ try {
             q.category,
             q.status,
             q.created_at,
+            validation.result_code AS validation_result,
+            validation.reason AS validation_reason,
+            validation.category AS validation_category,
+            validation.api_status AS validation_api_status,
 
             COALESCE(
                 current_review.publication_status,
@@ -54,6 +58,7 @@ try {
         LEFT JOIN users u
             ON u.user_id = q.user_id
 
+<<<<<<< HEAD
         LEFT JOIN moderation_events current_review
             ON current_review.id = (
                 SELECT MAX(me.id)
@@ -61,6 +66,17 @@ try {
                 WHERE me.content_type = 'question'
                   AND me.content_id = q.id
             )
+=======
+        LEFT JOIN qa_validation_results validation
+            ON validation.id = (
+                SELECT MAX(qvr.id)
+                FROM qa_validation_results qvr
+                WHERE qvr.content_type = 'question'
+                  AND qvr.content_id = q.id
+            )
+
+    ";
+>>>>>>> 64e62b774cc80e4e2d0be33e0f90b0e23cf096ff
 
         WHERE
             current_review.publication_status = 'APPROVED'
@@ -415,6 +431,22 @@ body[data-theme="dark"] .question-card {
     color: #842029;
 }
 
+.validation-result {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--history-border);
+    border-radius: 9px;
+    background: var(--history-soft);
+    color: var(--history-text);
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.validation-result strong {
+    display: block;
+}
+
 .answered {
     background: #d4edda;
     color: #155724;
@@ -744,6 +776,25 @@ body[data-theme="dark"] .question-card {
                         </span>
 
                     </div>
+
+                    <?php if (!empty($question['validation_result'])): ?>
+                        <div class="validation-result" role="status">
+                            <?php if (
+                                $isPublished &&
+                                $question['validation_result'] === 'REVIEW_REQUIRED' &&
+                                $question['validation_api_status'] !== 'ok'
+                            ): ?>
+                                <strong>Topic validation unavailable · <?= e($question['validation_category']) ?></strong>
+                                This question was published after its selected topic and existing moderation checks passed. Answers are open.
+                            <?php else: ?>
+                                <strong>
+                                    Validation: <?= e($question['validation_result']) ?>
+                                    · <?= e($question['validation_category']) ?>
+                                </strong>
+                                <?= e($question['validation_reason']) ?>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
 
                     <!-- ANSWER BUTTON -->
                     <div class="question-actions">

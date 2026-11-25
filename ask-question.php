@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/ai_helpers.php';
+require_once __DIR__ . '/includes/ai_validation.php';
 
 $user = require_login();
 $userId = (int)($user['user_id'] ?? $user['id'] ?? 0);
@@ -41,9 +42,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     verify_csrf();
 
-    $old['title'] = trim((string)($_POST['title'] ?? ''));
-    $old['body'] = trim((string)($_POST['body'] ?? ''));
-    $old['category_id'] = trim((string)($_POST['category_id'] ?? ''));
+    $titleInput = $_POST['title'] ?? '';
+    $bodyInput = $_POST['body'] ?? '';
+    $categoryInput = $_POST['category_id'] ?? '';
+    $old['title'] = is_string($titleInput) ? trim($titleInput) : '';
+    $old['body'] = is_string($bodyInput) ? trim($bodyInput) : '';
+    $old['category_id'] = is_string($categoryInput)
+        ? trim($categoryInput)
+        : '';
 
     $selectedCategory = '';
 
@@ -91,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
 
+<<<<<<< HEAD
             $moderation = groqRateLimitAllowed($userId, 'question')
                 ? moderateQuestion(
                     $old['title'],
@@ -145,28 +152,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($insert->rowCount() !== 1 || $questionId <= 0) {
                 throw new RuntimeException(
                     'Question insert did not complete.'
+=======
+            $validation = validateCollegeContent(
+                $connection,
+                $userId,
+                'question',
+                $selectedCategory,
+                $old['body'],
+                $old['title']
+            );
+
+            $needsGroqCheck = $validation['result'] === 'RELEVANT_AND_SUPPORTED' ||
+                (
+                    $validation['result'] === 'REVIEW_REQUIRED' &&
+                    ($validation['api_status'] ?? 'ok') !== 'ok'
+                );
+            $moderation = $needsGroqCheck &&
+                groqRateLimitAllowed($userId, 'question')
+                ? moderateQuestion(
+                    $old['title'],
+                    $old['body'],
+                    [],
+                    $selectedCategory
+                )
+                : groqModerationFailure(
+                    'question',
+                    $needsGroqCheck ? 'rate_limited' : 'not_required'
+                );
+
+            if (collegeQuestionCanUseRelevanceFallback(
+                $validation,
+                $moderation,
+                $selectedCategory
+            )) {
+                $validation = collegeValidationResult(
+                    'question',
+                    'RELEVANT_AND_SUPPORTED',
+                    $selectedCategory,
+                    'groq_relevance_fallback',
+                    $moderation['model'] ?? null
+>>>>>>> 64e62b774cc80e4e2d0be33e0f90b0e23cf096ff
                 );
             }
 
-            recordModerationEvent(
-                $connection,
-                'question',
-                $questionId,
-                'AI',
-                $publicationStatus,
-                $moderation
-            );
+            $groqCategoryMismatch = !empty($moderation['ok']) &&
+                !collegeQuestionModerationMatchesCategory(
+                    $moderation,
+                    $selectedCategory
+                );
 
-            $connection->commit();
+            if (
+                collegeQuestionValidationBlocksSubmission($validation) ||
+                $groqCategoryMismatch
+            ) {
+                if ($groqCategoryMismatch) {
+                    $errors[] = 'This question does not match the selected category. Please choose the correct category or revise the question.';
+                } else {
+                    $errors[] = match ($validation['result']) {
+                        'IRRELEVANT' => 'This question is not relevant to the selected category. Please choose the correct category or ask about Admissions, Academics, Placements, or Campus Life.',
+                        'NEEDS_CLARIFICATION' => 'Please clarify how your question relates to the selected college category and submit it again.',
+                        'POTENTIALLY_INCORRECT', 'UNSUPPORTED' => 'This question could not be validated as relevant to the selected category. Please review it and try again.',
+                        'REVIEW_REQUIRED' => 'Topic validation could not be completed. Your question was not submitted; please try again shortly.',
+                        default => 'Topic validation could not be completed. Your question was not submitted; please try again shortly.',
+                    };
+                }
+            } else {
+                $connection->beginTransaction();
 
-            set_flash(
-                'success',
-                $publicationStatus === 'APPROVED'
-                    ? 'Your question has been published successfully!'
-                    : 'Your question could not be automatically approved because it may contain inappropriate or unrelated content. It has been forwarded to the administrator for review.'
-            );
+                $insert = $connection->prepare(
+                    'INSERT INTO questions
+                    (
+                        user_id,
+                        question_title,
+                        question_description,
+                        category,
+                        status,
+                        publication_status,
+                        created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())'
+                );
 
-            redirect('question-history.php');
+                $publicationStatus = moderationPublicationStatus($moderation);
+
+                $insert->execute([
+                    $userId,
+                    $old['title'],
+                    $old['body'],
+                    $selectedCategory,
+                    'Pending',
+                    $publicationStatus
+                ]);
+
+                $questionId = (int)$connection->lastInsertId();
+
+                if ($insert->rowCount() !== 1 || $questionId <= 0) {
+                    throw new RuntimeException(
+                        'Question insert did not complete.'
+                    );
+                }
+
+                recordModerationEvent(
+                    $connection,
+                    'question',
+                    $questionId,
+                    'AI',
+                    $publicationStatus,
+                    $moderation
+                );
+                recordCollegeValidationResult(
+                    $connection,
+                    'question',
+                    $questionId,
+                    $validation
+                );
+
+                $connection->commit();
+
+                set_flash(
+                    'success',
+                    $publicationStatus === 'APPROVED'
+                        ? 'Your question has been published successfully!'
+                        : 'Your question has been forwarded to the administrator for review.'
+                );
+
+                redirect('question-history.php');
+            }
 
         } catch (Throwable $exception) {
 

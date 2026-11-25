@@ -2,14 +2,14 @@
 // auth/forgot_password_process.php
 session_start();
 require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../config/mail_config.php';
+
+$mailConfigPath = __DIR__ . '/../config/mail_config.php';
+if (file_exists($mailConfigPath)) {
+    require_once $mailConfigPath;
+}
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-
-require_once __DIR__ . '/../libs/PHPMailer/src/Exception.php';
-require_once __DIR__ . '/../libs/PHPMailer/src/PHPMailer.php';
-require_once __DIR__ . '/../libs/PHPMailer/src/SMTP.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: ../forgot_password.php');
@@ -58,6 +58,8 @@ if ($action === 'send_otp') {
             exit;
         }
 
+        unset($_SESSION['fp_error'], $_SESSION['fp_dev_otp']);
+
         // Generate 6-digit OTP valid for 10 minutes
         $otp = (string) random_int(100000, 999999);
 
@@ -69,52 +71,115 @@ if ($action === 'send_otp') {
         $_SESSION['fp_otp_expires']  = time() + 600; // 10 minutes
         $_SESSION['fp_verified']     = false;
 
-        // Send OTP via PHPMailer + Gmail SMTP
-        $mail = new PHPMailer(true);
+        $isLocalhost = in_array(
+            strtolower($_SERVER['SERVER_NAME'] ?? ''),
+            ['localhost', '127.0.0.1'],
+            true
+        );
+        $smtpEmail = defined('SMTP_EMAIL') && is_string(SMTP_EMAIL) ? trim(SMTP_EMAIL) : '';
+        $smtpPassword = defined('SMTP_APP_PASSWORD') && is_string(SMTP_APP_PASSWORD)
+            ? trim(SMTP_APP_PASSWORD)
+            : '';
+        $emailPlaceholder = in_array(strtolower($smtpEmail), [
+            'yourprojectemail@gmail.com',
+            'your-gmail-address@gmail.com',
+        ], true);
+        $passwordPlaceholder = in_array(strtolower($smtpPassword), [
+            'xxxx xxxx xxxx xxxx',
+            'your-16-character-gmail-app-password',
+        ], true);
+        $smtpConfigured = $smtpEmail !== ''
+            && filter_var($smtpEmail, FILTER_VALIDATE_EMAIL)
+            && $smtpPassword !== ''
+            && !$emailPlaceholder
+            && !$passwordPlaceholder;
+        $opensslAvailable = extension_loaded('openssl');
+        $phpMailerFiles = [
+            __DIR__ . '/../libs/PHPMailer/src/Exception.php',
+            __DIR__ . '/../libs/PHPMailer/src/PHPMailer.php',
+            __DIR__ . '/../libs/PHPMailer/src/SMTP.php',
+        ];
+        $phpMailerAvailable = true;
+        foreach ($phpMailerFiles as $phpMailerFile) {
+            if (!file_exists($phpMailerFile)) {
+                $phpMailerAvailable = false;
+                break;
+            }
+        }
 
-        try {
-            $mail->isSMTP();
-            $mail->Host       = 'smtp.gmail.com';
-            $mail->SMTPAuth   = true;
-            $mail->Username   = SMTP_EMAIL;
-            $mail->Password   = str_replace(' ', '', SMTP_APP_PASSWORD);
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = 587;
-            $mail->SMTPOptions = [
-                'ssl' => [
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
-                    'allow_self_signed' => true,
-                ],
-            ];
+        $mailError = '';
+        if ($smtpConfigured && $opensslAvailable && $phpMailerAvailable) {
+            foreach ($phpMailerFiles as $phpMailerFile) {
+                require_once $phpMailerFile;
+            }
 
-            $mail->setFrom(SMTP_EMAIL, 'AITAM Slack');
-            $mail->addAddress($user['email'], $user['full_name']);
+            $mail = null;
+            try {
+                $mail = new PHPMailer(true);
+                $mail->isSMTP();
+                $mail->Host       = 'smtp.gmail.com';
+                $mail->SMTPAuth   = true;
+                $mail->Username   = $smtpEmail;
+                $mail->Password   = str_replace(' ', '', $smtpPassword);
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
+                $mail->SMTPOptions = [
+                    'ssl' => [
+                        'verify_peer'       => false,
+                        'verify_peer_name'  => false,
+                        'allow_self_signed' => true,
+                    ],
+                ];
 
-            $mail->isHTML(true);
-            $mail->Subject = 'AITAM Slack - Password Reset OTP';
-            $mail->Body    = "
-                <div style='font-family: Inter, Arial, sans-serif; max-width: 480px; margin: auto; padding: 24px; border: 1px solid #DCE6EF; border-radius: 12px; background: #FFFFFF;'>
-                    <h2 style='color: #0F2854; margin: 0 0 12px;'>AITAM Slack Account Recovery</h2>
-                    <p style='color: #334155; font-size: 14px; line-height: 1.6;'>Hello <strong>" . htmlspecialchars($user['full_name']) . "</strong>,</p>
-                    <p style='color: #334155; font-size: 14px; line-height: 1.6;'>Use the 6-digit One-Time Password (OTP) below to reset your account password:</p>
-                    <div style='font-size: 28px; font-weight: 700; letter-spacing: 8px; color: #1C4D8D; background: #EAF2F9; padding: 14px; text-align: center; border-radius: 8px; margin: 18px 0;'>
-                        {$otp}
+                $mail->setFrom($smtpEmail, 'AITAM Slack');
+                $mail->addAddress($user['email'], $user['full_name']);
+
+                $mail->isHTML(true);
+                $mail->Subject = 'AITAM Slack - Password Reset OTP';
+                $mail->Body    = "
+                    <div style='font-family: Inter, Arial, sans-serif; max-width: 480px; margin: auto; padding: 24px; border: 1px solid #DCE6EF; border-radius: 12px; background: #FFFFFF;'>
+                        <h2 style='color: #0F2854; margin: 0 0 12px;'>AITAM Slack Account Recovery</h2>
+                        <p style='color: #334155; font-size: 14px; line-height: 1.6;'>Hello <strong>" . htmlspecialchars($user['full_name']) . "</strong>,</p>
+                        <p style='color: #334155; font-size: 14px; line-height: 1.6;'>Use the 6-digit One-Time Password (OTP) below to reset your account password:</p>
+                        <div style='font-size: 28px; font-weight: 700; letter-spacing: 8px; color: #1C4D8D; background: #EAF2F9; padding: 14px; text-align: center; border-radius: 8px; margin: 18px 0;'>
+                            {$otp}
+                        </div>
+                        <p style='color: #64748B; font-size: 12px; margin-bottom: 0;'>This code expires in 10 minutes. If you did not request this, you can safely ignore this email.</p>
                     </div>
-                    <p style='color: #64748B; font-size: 12px; margin-bottom: 0;'>This code expires in 10 minutes. If you did not request this, you can safely ignore this email.</p>
-                </div>
-            ";
-            $mail->AltBody = "Hello {$user['full_name']}, your AITAM Slack password reset OTP is: {$otp} (valid for 10 minutes).";
+                ";
+                $mail->AltBody = "Hello {$user['full_name']}, your AITAM Slack password reset OTP is: {$otp} (valid for 10 minutes).";
 
-            $mail->send();
-            unset($_SESSION['fp_dev_otp']); // Real email sent; hide dev banner
+                $mail->send();
+                unset($_SESSION['fp_dev_otp']);
+            } catch (Exception $e) {
+                $mailError = $mail instanceof PHPMailer && $mail->ErrorInfo !== ''
+                    ? $mail->ErrorInfo
+                    : $e->getMessage();
+                error_log("PHPMailer Error: " . $mailError);
+            }
+        } elseif (!$smtpConfigured) {
+            $mailError = 'Gmail SMTP is not configured. Add valid SMTP_EMAIL and SMTP_APP_PASSWORD values to config/mail_config.php.';
+        } elseif (!$opensslAvailable) {
+            $mailError = 'The PHP OpenSSL extension is not loaded, so Gmail SMTP cannot be used.';
+        } else {
+            $mailError = 'PHPMailer is missing. Ensure its Exception.php, PHPMailer.php, and SMTP.php files are in libs/PHPMailer/src/.';
+        }
 
-        } catch (Exception $e) {
-            error_log("PHPMailer Error: " . $mail->ErrorInfo);
-            $_SESSION['fp_step']  = 'enter_email';
-            $_SESSION['fp_error'] = $mail->ErrorInfo;
-            header('Location: ../forgot_password.php');
-            exit;
+        if ($mailError !== '' && $isLocalhost) {
+            $_SESSION['fp_dev_otp'] = $otp;
+            $_SESSION['fp_error'] = $mailError . ' Using the local test OTP below; configure Gmail SMTP to enable email delivery.';
+        } elseif ($mailError !== '') {
+            $_SESSION['fp_step'] = 'enter_email';
+            unset(
+                $_SESSION['fp_user_id'],
+                $_SESSION['fp_email'],
+                $_SESSION['fp_masked_email'],
+                $_SESSION['fp_otp_hash'],
+                $_SESSION['fp_otp_expires'],
+                $_SESSION['fp_verified'],
+                $_SESSION['fp_dev_otp']
+            );
+            $_SESSION['fp_error'] = $mailError;
         }
 
         header('Location: ../forgot_password.php');

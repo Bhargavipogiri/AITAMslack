@@ -34,15 +34,15 @@ $category = is_string($_GET['category'] ?? null)
     ? trim($_GET['category'])
     : '';
 
-$allowedStatuses = ['Pending', 'Published', 'Hidden'];
+$allowedStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
 
 $status = is_string($_GET['status'] ?? null)
     ? trim($_GET['status'])
-    : 'Pending';
+    : 'PENDING';
 
 $status = in_array($status, $allowedStatuses, true)
     ? $status
-    : 'Pending';
+    : 'PENDING';
 
 /* -------------------------------------------------
    CSRF AND FLASH MESSAGE
@@ -109,8 +109,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
 
         $answerStatus = $action === 'approve'
-            ? 'Published'
-            : 'Hidden';
+            ? 'APPROVED'
+            : 'REJECTED';
 
         $publicationStatus = $answerStatus === 'Published'
             ? 'APPROVED'
@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $update = $pdo->prepare(
                 'UPDATE answers
-                 SET status = :status
+                 SET publication_status = :status
                  WHERE id = :id'
             );
 
@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             /* UPDATE RELATED QUESTION STATUS */
 
-            if ($answerStatus === 'Published') {
+            if ($answerStatus === 'APPROVED') {
 
                 $questionUpdate = $pdo->prepare(
                     "UPDATE questions
@@ -218,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->commit();
 
             $_SESSION['flash_message'] =
-                $answerStatus === 'Published'
+                $answerStatus === 'APPROVED'
                     ? 'Answer published successfully.'
                     : 'Answer hidden successfully.';
 
@@ -274,17 +274,17 @@ $statsStmt = $pdo->query(
         COUNT(*) AS total_answers,
 
         COALESCE(
-            SUM(CASE WHEN status = 'Published' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN publication_status = 'APPROVED' THEN 1 ELSE 0 END),
             0
         ) AS published_answers,
 
         COALESCE(
-            SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN publication_status = 'PENDING' THEN 1 ELSE 0 END),
             0
         ) AS pending_answers,
 
         COALESCE(
-            SUM(CASE WHEN status = 'Hidden' THEN 1 ELSE 0 END),
+            SUM(CASE WHEN publication_status = 'REJECTED' THEN 1 ELSE 0 END),
             0
         ) AS hidden_answers
 
@@ -341,7 +341,7 @@ if ($category !== '') {
 
 if ($status !== '') {
 
-    $where[] = 'a.status = :status';
+    $where[] = 'a.publication_status = :status';
 
     $params[':status'] = $status;
 }
@@ -360,7 +360,7 @@ $sql = "
         a.answer_text,
         a.question_id,
         a.user_id,
-        a.status,
+        a.publication_status,
         a.created_at,
 
         q.question_title,
@@ -380,11 +380,17 @@ $sql = "
         ai.detected_violations,
         ai.model AS ai_model,
         ai.api_status,
+<<<<<<< HEAD
 
         admin_review.admin_decision,
         admin_review.publication_status AS admin_publication_status,
         admin_review.admin_reviewed_at,
         admin_review.admin_reviewer_id
+=======
+        validation.result_code AS validation_result,
+        validation.reason AS validation_reason,
+        validation.category AS validation_category
+>>>>>>> 64e62b774cc80e4e2d0be33e0f90b0e23cf096ff
 
     FROM answers a
 
@@ -403,6 +409,7 @@ $sql = "
               AND me.event_type = 'AI'
         )
 
+<<<<<<< HEAD
     LEFT JOIN moderation_events admin_review
         ON admin_review.id = (
             SELECT MAX(me.id)
@@ -410,6 +417,14 @@ $sql = "
             WHERE me.content_type = 'answer'
               AND me.content_id = a.id
               AND me.event_type = 'ADMIN'
+=======
+    LEFT JOIN qa_validation_results validation
+        ON validation.id = (
+            SELECT MAX(qvr.id)
+            FROM qa_validation_results qvr
+            WHERE qvr.content_type = 'answer'
+              AND qvr.content_id = a.id
+>>>>>>> 64e62b774cc80e4e2d0be33e0f90b0e23cf096ff
         )
 
     $whereSql
@@ -730,6 +745,23 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                                 <?php endif; ?>
 
+                                                <?php if (!empty($answer['validation_result'])): ?>
+
+                                                    <hr>
+                                                    <p>
+                                                        College validation:
+                                                        <?= e($answer['validation_result']) ?>
+                                                    </p>
+                                                    <p>
+                                                        Topic:
+                                                        <?= e($answer['validation_category']) ?>
+                                                    </p>
+                                                    <p>
+                                                        <?= e($answer['validation_reason']) ?>
+                                                    </p>
+
+                                                <?php endif; ?>
+
                                                 <?php if (!empty($answer['detected_violations'])): ?>
 
                                                     <p>
@@ -828,9 +860,9 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                         <td>
 
-                                            <span class="status-badge <?= e(strtolower($answer['status'])) ?>">
+                                            <span class="status-badge <?= e(strtolower($answer['publication_status'])) ?>">
 
-                                                <?= e($answer['status']) ?>
+                                                <?= e($answer['publication_status']) ?>
 
                                             </span>
 
@@ -871,7 +903,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                                     value="<?= e($answer['id']) ?>"
                                                 >
 
-                                                <?php if ($answer['status'] !== 'Published'): ?>
+                                                <?php if ($answer['publication_status'] !== 'APPROVED'): ?>
 
                                                     <button
                                                         type="submit"
@@ -885,7 +917,7 @@ $answers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                                 <?php endif; ?>
 
-                                                <?php if ($answer['status'] !== 'Hidden'): ?>
+                                                <?php if ($answer['publication_status'] !== 'REJECTED'): ?>
 
                                                     <button
                                                         type="submit"
