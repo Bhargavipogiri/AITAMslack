@@ -154,7 +154,10 @@ $sql = "
         NULL AS ai_category,
         ai.detected_violations,
         ai.model AS ai_model,
-        ai.api_status
+        ai.api_status,
+        validation.result_code AS validation_result,
+        validation.reason AS validation_reason,
+        validation.category AS validation_category
     FROM questions q
     LEFT JOIN users author ON author.user_id = q.user_id
     LEFT JOIN moderation_events ai
@@ -164,6 +167,13 @@ $sql = "
             WHERE me.content_type = 'question'
               AND me.content_id = q.id
               AND me.event_type = 'AI'
+        )
+    LEFT JOIN qa_validation_results validation
+        ON validation.id = (
+            SELECT MAX(qvr.id)
+            FROM qa_validation_results qvr
+            WHERE qvr.content_type = 'question'
+              AND qvr.content_id = q.id
         )
     $whereSql
     ORDER BY q.id DESC
@@ -441,6 +451,14 @@ $hiddenQuestions = (int)$pdo->query(
                                                 </p>
                                             <?php endif; ?>
                                         </details>
+                                    <?php endif; ?>
+                                    <?php if (!empty($question['validation_result'])): ?>
+                                        <div class="small mt-2">
+                                            Validation:
+                                            <?= e($question['validation_result']) ?>
+                                            · <?= e($question['validation_category']) ?>
+                                            <div><?= e($question['validation_reason']) ?></div>
+                                        </div>
                                     <?php endif; ?>
                                 </td>
 

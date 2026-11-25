@@ -27,6 +27,11 @@ $mainMenu = [
         'link' => '/AITAMslack/admin/answers.php'
     ],
     [
+        'title' => 'Verified College Facts',
+        'icon' => 'bi-journal-check',
+        'link' => '/AITAMslack/admin/verified-facts.php'
+    ],
+    [
         'title' => 'Moderation History',
         'icon' => 'bi-shield-check',
         'link' => '/AITAMslack/admin/moderation-history.php'

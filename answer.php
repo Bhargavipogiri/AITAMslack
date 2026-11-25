@@ -2,9 +2,12 @@
 
 require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/ai_helpers.php';
+require_once __DIR__ . '/includes/ai_validation.php';
 require_once __DIR__ . '/lesder-db.php';
 
 $databaseError = '';
+$answerValidationNotice = $_SESSION['flash']['answer_validation'] ?? null;
+unset($_SESSION['flash']['answer_validation']);
 $currentUserId = filter_var(
     $_SESSION['user_id'] ?? null,
     FILTER_VALIDATE_INT,
@@ -20,10 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     verify_csrf();
 
-    $questionId = filter_var(
-        $_POST['question_id'] ?? '',
-        FILTER_VALIDATE_INT
-    );
+    $questionIdInput = $_POST['question_id'] ?? '';
+    $questionId = is_string($questionIdInput) || is_int($questionIdInput)
+        ? filter_var($questionIdInput, FILTER_VALIDATE_INT)
+        : false;
 
     $answerInput = $_POST['answer_text'] ?? '';
     $answerText = is_string($answerInput) ? trim($answerInput) : '';
@@ -83,6 +86,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? $duplicateCheck['matches']
             : [];
 
+        $validation = validateCollegeContent(
+            $conn,
+            (int)$currentUserId,
+            'answer',
+            (string)($question['category'] ?? ''),
+            $answerText,
+            (string)$question['question_title'],
+            (string)$question['question_description']
+        );
+
         $moderation = groqRateLimitAllowed((int)$currentUserId, 'answer')
             ? moderateAnswer(
                 (string)$question['question_title'],
@@ -93,9 +106,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             )
             : groqModerationFailure('answer', 'rate_limited');
 
+        if (collegeAnswerCanUseRelevanceFallback($validation, $moderation)) {
+            $validation = collegeValidationResult(
+                'answer',
+                'RELEVANT',
+                (string)($question['category'] ?? 'Unknown'),
+                'groq_relevance_fallback',
+                $moderation['model'] ?? null
+            );
+        }
+
+        if (collegeAnswerIsIrrelevant($validation, $moderation)) {
+            $rejectedValidation = collegeValidationResult(
+                'answer',
+                'IRRELEVANT',
+                (string)($question['category'] ?? 'Unknown')
+            );
+            $_SESSION['flash']['answer_validation'] = [
+                'result' => $rejectedValidation['result'],
+                'reason' => $rejectedValidation['reason'],
+                'category' => $rejectedValidation['category'],
+            ];
+            header(
+                "Location: answer.php?question_id=" .
+                $questionId .
+                '&success=irrelevant'
+            );
+            exit();
+        }
+
         $conn->beginTransaction();
 
-        $publicationStatus = moderationPublicationStatus($moderation);
+        $publicationStatus = collegeAnswerCanPublish($validation, $moderation)
+            ? 'APPROVED'
+            : 'PENDING';
 
         $sql = "INSERT INTO answers
                 (question_id, user_id, answer_text, publication_status)
@@ -125,6 +169,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $publicationStatus,
             $moderation
         );
+        recordCollegeValidationResult(
+            $conn,
+            'answer',
+            $answerId,
+            $validation
+        );
 
         if ($publicationStatus === 'APPROVED') {
             $updateQuestion = $conn->prepare(
@@ -138,6 +188,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $conn->commit();
+        $_SESSION['flash']['answer_validation'] = [
+            'result' => $validation['result'],
+            'reason' => $validation['reason'],
+            'category' => $validation['category'],
+        ];
 
         header(
             "Location: answer.php?question_id=" .
@@ -217,13 +272,30 @@ try {
             a.user_id,
             a.answer_text,
             a.created_at,
+            a.publication_status,
+            validation.result_code AS validation_result,
+            validation.reason AS validation_reason,
+            validation.category AS validation_category,
             COALESCE(NULLIF(s.name, ''), NULLIF(u.full_name, '')) AS author_name,
             COALESCE(NULLIF(s.department, ''), NULLIF(u.department, '')) AS author_department
          FROM answers a
          LEFT JOIN students s ON s.id = a.user_id
          LEFT JOIN users u ON u.user_id = a.user_id
+         LEFT JOIN qa_validation_results validation
+            ON validation.id = (
+                SELECT MAX(qvr.id)
+                FROM qa_validation_results qvr
+                WHERE qvr.content_type = 'answer'
+                  AND qvr.content_id = a.id
+            )
          WHERE a.question_id = :question_id
-           AND a.publication_status = 'APPROVED'
+           AND (
+                a.publication_status = 'APPROVED'
+                OR (
+                    a.user_id = :viewer_id
+                    AND a.publication_status IN ('PENDING', 'REJECTED')
+                )
+           )
          ORDER BY a.created_at ASC, a.id ASC"
     );
 
@@ -699,11 +771,23 @@ body[data-theme="dark"] .question-card {
         <div class="message <?= $_GET['success'] === 'approved' ? 'success' : 'review' ?>" role="status">
         <?php if ($_GET['success'] === 'approved'): ?>
             Your answer has been published successfully!
+        <?php elseif ($_GET['success'] === 'irrelevant'): ?>
+            Your answer does not address this question and was not submitted.
         <?php else: ?>
-            Your answer could not be automatically approved because it may be incorrect, irrelevant, or inappropriate. It has been forwarded to the administrator for review.
+            Your answer could not be confirmed as safe and relevant, so it was not published. The original submission is retained.
         <?php endif; ?>
         </div>
 
+    <?php endif; ?>
+
+    <?php if (is_array($answerValidationNotice)): ?>
+        <div class="message <?= ($answerValidationNotice['result'] ?? '') === 'RELEVANT' ? 'success' : 'review' ?>" role="status">
+            <strong>
+                Validation: <?= e($answerValidationNotice['result'] ?? 'REVIEW_REQUIRED') ?>
+                · <?= e($answerValidationNotice['category'] ?? 'Unknown') ?>
+            </strong>
+            <?= e($answerValidationNotice['reason'] ?? 'Moderator review is required.') ?>
+        </div>
     <?php endif; ?>
 
 
@@ -780,7 +864,8 @@ body[data-theme="dark"] .question-card {
                     if ($answerQuery !== null) {
 
                         $answerQuery->execute([
-                            'question_id' => $question['id']
+                            'question_id' => $question['id'],
+                            'viewer_id' => $canAnswer ? (int)$currentUserId : 0,
                         ]);
 
                         $answers = $answerQuery->fetchAll(
@@ -799,9 +884,25 @@ body[data-theme="dark"] .question-card {
 
                             <div class="answer-item">
 
+                                <?php if ($answer['publication_status'] !== 'APPROVED'): ?>
+                                    <div class="answer-meta">
+                                        Your answer is <?= ($answer['publication_status'] ?? '') === 'PENDING'
+                                            ? 'pending administrator review.'
+                                            : 'not published.' ?>
+                                    </div>
+                                <?php endif; ?>
+
                                 <p>
                                     <?= nl2br(e($answer['answer_text'])) ?>
                                 </p>
+
+                                <?php if (!empty($answer['validation_result'])): ?>
+                                    <div class="answer-meta" role="status">
+                                        Validation: <?= e($answer['validation_result']) ?>
+                                        · <?= e($answer['validation_category']) ?>
+                                        — <?= e($answer['validation_reason']) ?>
+                                    </div>
+                                <?php endif; ?>
 
                                 <div class="answer-meta">
 

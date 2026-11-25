@@ -6,6 +6,7 @@ $pageTitles = [
     'users.php' => 'User Management',
     'questions.php' => 'Question Management',
     'answers.php' => 'Answer Management',
+    'verified-facts.php' => 'Verified College Facts',
     'reported-questions.php' => 'Reported Questions',
     'reported-answers.php' => 'Reported Answers',
     'announcements.php' => 'Announcements Management',
